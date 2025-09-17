@@ -4,7 +4,7 @@ import { BrowserWindow } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import IpcChannel from "../../../common/ipc/IpcChannel";
-import Ipc from "../../../common/ipc/IpcHandler";
+import * as Ipc from "../../../common/ipc/IpcHandler";
 import { filePathWithoutExtension } from "../fileUtils/fileUtils";
 import { sendToRenderer } from "../ipcToMainHandler/IpcToMainHandler";
 import logger from "../logger/Logger";
@@ -13,7 +13,7 @@ export const render = (
   win: BrowserWindow,
   ffmpegArguments: string[],
   videoFilePath: string
-): Ipc.ExportVideoStart.Response =>
+): Ipc.ExportVideoStartResponse =>
   new Promise((resolve) => {
     const videoFilePathIndex = ffmpegArguments.findIndex((el) => el === videoFilePath);
 

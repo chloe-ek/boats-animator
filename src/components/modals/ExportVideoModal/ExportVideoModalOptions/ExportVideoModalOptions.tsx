@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { useProjectFilesContext } from "../../../../context/ProjectFilesContext.tsx/ProjectFilesContext";
 import useProjectAndTake from "../../../../hooks/useProjectAndTake";
+import useProjectDirectory from "../../../../hooks/useProjectDirectory";
+import { PageRoute } from "../../../../services/PageRoute";
 import { makeFrameFileName } from "../../../../services/project/projectBuilder";
 import { getTrackLength } from "../../../../services/project/projectCalculator";
 import Button from "../../../common/Button/Button";
@@ -19,7 +22,6 @@ import Page from "../../../common/Page/Page";
 import PageBody from "../../../common/PageBody/PageBody";
 import Toolbar from "../../../common/Toolbar/Toolbar";
 import ToolbarItem, { ToolbarItemAlign } from "../../../common/ToolbarItem/ToolbarItem";
-import { PageRoute } from "../../../../services/PageRoute";
 
 const fFmpegQualityPresets = {
   High: "veryslow",
@@ -37,6 +39,8 @@ const ExportVideoModalOptions = ({
   onVideoFilePathChange,
 }: ExportVideoModalOptionsProps) => {
   const { project, take } = useProjectAndTake();
+  const projectDirectory = useProjectDirectory();
+  const { getTrackItemObjectURL } = useProjectFilesContext();
 
   const [currentFilePath, setCurrentFilePath] = useState("");
   const [qualityPreset, setQualityPreset] = useState(fFmpegQualityPresets.Medium);
@@ -49,8 +53,48 @@ const ExportVideoModalOptions = ({
     setCurrentFilePath(newFilePath ?? "");
   };
 
-  const startExportVideo = () => {
-    onSubmit(ffmpegArguments);
+  const startExportVideo = async () => {
+    try {
+      // Get frame data from File System Access API
+      const frameData = [];
+      for (let i = 0; i < take.frameTrack.trackItems.length; i++) {
+        const trackItem = take.frameTrack.trackItems[i];
+        const objectURL = getTrackItemObjectURL(trackItem);
+        
+        // Fetch the blob data
+        const response = await fetch(objectURL);
+        const blob = await response.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        
+        frameData.push({
+          fileName: trackItem.fileName,
+          data: arrayBuffer
+        });
+      }
+      
+      // Copy frames to temp directory
+      const tempDirectory = await window.preload.ipcToMain.copyFramesToTempDirectory({
+        frameData,
+        tempDirectory: ""
+      });
+      
+      // Update ffmpeg arguments with temp directory path
+      const framePattern = window.preload.joinPath(
+        tempDirectory,
+        makeFrameFileName(take, 0).replace(/\d{5}\.jpg$/, "%05d.jpg")
+      );
+      
+      const updatedFFmpegArguments = ffmpegArguments.replace(
+        /-i "[^"]*"/,
+        `-i "${framePattern}"`
+      );
+      
+      onSubmit(updatedFFmpegArguments);
+    } catch (error) {
+      console.error("Error copying frames to temp directory:", error);
+      // Fallback to original behavior
+      onSubmit(ffmpegArguments);
+    }
   };
 
   useEffect(() => {
@@ -59,25 +103,31 @@ const ExportVideoModalOptions = ({
     );
     onVideoFilePathChange(videoFilePath);
 
-    const framePath = makeFrameFileName(take, parseInt("%05d this will be broken"));
-    const totalFrames = getTrackLength(take.frameTrack);
+    if (projectDirectory?.friendlyName) {
+      // Create the frame pattern for FFmpeg sequence input
+      // Note: This assumes frame files are in the current working directory
+      // TODO: Implement proper file copying to temporary directory for FFmpeg access
+      const frameFileName = makeFrameFileName(take, 0);
+      const framePattern = frameFileName.replace(/\d{5}\.jpg$/, "%05d.jpg");
+      const totalFrames = getTrackLength(take.frameTrack);
 
-    setFFmpegArguments(
-      [
-        "-y", // Overwrite output file if it already exists
-        `-framerate ${take.frameRate}`,
-        `-start_number 0`,
-        `-i "${framePath}"`,
-        `-frames:v ${totalFrames}`,
-        "-c:v libx264",
-        `-preset ${qualityPreset}`,
-        "-crf 17",
-        "-vf format=yuv420p",
-        `"${videoFilePath}"`,
-        "-hide_banner", // Hide FFmpeg library info from output
-      ].join(" ")
-    );
-  }, [currentFilePath, onVideoFilePathChange, project, qualityPreset, take]);
+      setFFmpegArguments(
+        [
+          "-y", // Overwrite output file if it already exists
+          `-framerate ${take.frameRate}`,
+          `-start_number 0`,
+          `-i "${framePattern}"`,
+          `-frames:v ${totalFrames}`,
+          "-c:v libx264",
+          `-preset ${qualityPreset}`,
+          "-crf 17",
+          "-vf format=yuv420p",
+          `"${videoFilePath}"`,
+          "-hide_banner", // Hide FFmpeg library info from output
+        ].join(" ")
+      );
+    }
+  }, [currentFilePath, onVideoFilePathChange, project, qualityPreset, take, projectDirectory]);
 
   return (
     <Modal onClose={PageRoute.ANIMATOR}>
