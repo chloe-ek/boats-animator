@@ -1,6 +1,9 @@
 import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, systemPreferences } from "electron";
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
 import IpcChannel from "../../../common/ipc/IpcChannel";
-import Ipc from "../../../common/ipc/IpcHandler";
+import * as Ipc from "../../../common/ipc/IpcHandler";
 import { render } from "../exportVideo/ExportVideo";
 import { settingsFileStore } from "../fileStore/SettingsFileStore";
 import { openUserDataDirectory, showItemInFolder } from "../fileUtils/fileUtils";
@@ -13,9 +16,9 @@ import {
 } from "../windowUtils/windowUtils";
 
 class IpcToMainHandler {
-  appVersion = async (): Ipc.AppVersion.Response => app.getVersion();
+  appVersion = async (): Ipc.AppVersionResponse => app.getVersion();
 
-  checkCameraAccess = async (): Ipc.CheckCameraAccess.Response => {
+  checkCameraAccess = async (): Ipc.CheckCameraAccessResponse => {
     // Only check media access on macOS and Windows (not supported by Linux)
     switch (process.platform) {
       case "win32":
@@ -27,22 +30,22 @@ class IpcToMainHandler {
     }
   };
 
-  getUserPreferences = async (): Ipc.GetUserPreferences.Response =>
+  getUserPreferences = async (): Ipc.GetUserPreferencesResponse =>
     settingsFileStore.get().userPreferences;
 
   logRenderer = async (
     e: IpcMainInvokeEvent,
     win: BrowserWindow,
-    payload: Ipc.LogRenderer.Payload
-  ): Ipc.LogRenderer.Response => {
+    payload: Ipc.LogRendererPayload
+  ): Ipc.LogRendererResponse => {
     logger.log(payload.logLevel, payload.loggingCode, payload.message, true, ProcessName.RENDERER);
   };
 
   saveSettingsAndClose = async (
     e: IpcMainInvokeEvent,
     win: BrowserWindow,
-    payload: Ipc.SaveSettingsAndClose.Payload
-  ): Ipc.SaveSettingsAndClose.Response => {
+    payload: Ipc.SaveSettingsAndClosePayload
+  ): Ipc.SaveSettingsAndCloseResponse => {
     settingsFileStore.save({
       appWindowSize: getWindowSize(win),
       userPreferences: payload.userPreferences,
@@ -50,38 +53,56 @@ class IpcToMainHandler {
     win.destroy();
   };
 
-  openUserDataDirectory = (): Ipc.OpenUserDataDirectory.Response => openUserDataDirectory();
+  openUserDataDirectory = (): Ipc.OpenUserDataDirectoryResponse => openUserDataDirectory();
 
   openConfirmPrompt = (
     e: IpcMainInvokeEvent,
     win: BrowserWindow,
-    payload: Ipc.OpenConfirmPrompt.Payload
-  ): Ipc.OpenConfirmPrompt.Response => openConfirmPrompt(win, payload.message);
+    payload: Ipc.OpenConfirmPromptPayload
+  ): Ipc.OpenConfirmPromptResponse => openConfirmPrompt(win, payload.message);
 
   openDirDialog = (
     e: IpcMainInvokeEvent,
     win: BrowserWindow,
-    payload: Ipc.OpenDirDialog.Payload
-  ): Ipc.OpenDirDialog.Response => openDirDialog(win, payload.workingDirectory, payload.title);
+    payload: Ipc.OpenDirDialogPayload
+  ): Ipc.OpenDirDialogResponse => openDirDialog(win, payload.workingDirectory, payload.title);
 
   openExportVideoFilePathDialog = (
     e: IpcMainInvokeEvent,
     win: BrowserWindow,
-    payload: Ipc.OpenExportVideoFilePathDialog.Payload
-  ): Ipc.OpenExportVideoFilePathDialog.Response =>
+    payload: Ipc.OpenExportVideoFilePathDialogPayload
+  ): Ipc.OpenExportVideoFilePathDialogResponse =>
     openExportVideoFilePathDialog(win, payload.currentFilePath);
 
   exportVideoStart = (
     e: IpcMainInvokeEvent,
     win: BrowserWindow,
-    payload: Ipc.ExportVideoStart.Payload
-  ): Ipc.ExportVideoStart.Response => render(win, payload.ffmpegArguments, payload.videoFilePath);
+    payload: Ipc.ExportVideoStartPayload
+  ): Ipc.ExportVideoStartResponse => render(win, payload.ffmpegArguments, payload.videoFilePath);
 
   showItemInFolder = (
     e: IpcMainInvokeEvent,
     win: BrowserWindow,
-    payload: Ipc.ShowItemInFolder.Payload
-  ): Ipc.ShowItemInFolder.Response => showItemInFolder(payload.filePath);
+    payload: Ipc.ShowItemInFolderPayload
+  ): Ipc.ShowItemInFolderResponse => showItemInFolder(payload.filePath);
+
+  copyFramesToTempDirectory = async (
+    e: IpcMainInvokeEvent,
+    win: BrowserWindow,
+    payload: Ipc.CopyFramesToTempDirectoryPayload
+  ): Ipc.CopyFramesToTempDirectoryResponse => {
+    // Create temp directory
+    const tempDir = path.join(os.tmpdir(), `boats-animator-export-${Date.now()}`);
+    await fs.mkdir(tempDir, { recursive: true });
+    
+    // Copy frame files
+    for (const frame of payload.frameData) {
+      const filePath = path.join(tempDir, frame.fileName);
+      await fs.writeFile(filePath, Buffer.from(frame.data));
+    }
+    
+    return tempDir;
+  };
 
   static handleIfWindow = (
     channel: IpcChannel,
@@ -130,6 +151,8 @@ export const addIpcToMainHandlers = () => {
   IpcToMainHandler.handleIfWindow(IpcChannel.EXPORT_VIDEO_START, ipcHandler.exportVideoStart);
 
   IpcToMainHandler.handleIfWindow(IpcChannel.SHOW_ITEM_IN_FOLDER, ipcHandler.showItemInFolder);
+
+  IpcToMainHandler.handleIfWindow(IpcChannel.COPY_FRAMES_TO_TEMP_DIRECTORY, ipcHandler.copyFramesToTempDirectory);
 };
 
 export const sendToRenderer = (

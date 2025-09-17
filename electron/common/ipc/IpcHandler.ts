@@ -1,92 +1,68 @@
 import LogLevel from "../LogLevel";
 import { UserPreferences } from "../UserPreferences";
 
-namespace Ipc {
-  export namespace AppVersion {
-    export type Payload = undefined;
-    export type Response = Promise<string>;
-  }
+export type AppVersionPayload = undefined;
+export type AppVersionResponse = Promise<string>;
 
-  export namespace CheckCameraAccess {
-    export type Payload = undefined;
-    export type Response = Promise<boolean>;
-  }
+export type CheckCameraAccessPayload = undefined;
+export type CheckCameraAccessResponse = Promise<boolean>;
 
-  export namespace GetUserPreferences {
-    export type Payload = undefined;
-    export type Response = Promise<UserPreferences>;
-  }
+export type GetUserPreferencesPayload = undefined;
+export type GetUserPreferencesResponse = Promise<UserPreferences>;
 
-  export namespace LogRenderer {
-    export type Payload = {
-      logLevel: LogLevel;
-      loggingCode: string;
-      message?:
-        | string
-        | number
-        | boolean
-        | undefined
-        | Record<string, string | number | boolean | undefined>;
-    };
-    export type Response = Promise<void>;
-  }
+export type LogRendererPayload = {
+  logLevel: LogLevel;
+  loggingCode: string;
+  message?:
+    | string
+    | number
+    | boolean
+    | undefined
+    | Record<string, string | number | boolean | undefined>;
+};
+export type LogRendererResponse = Promise<void>;
 
-  export namespace OnCloseButtonClick {
-    export type Payload = undefined;
-    export type Response = Promise<void>;
-  }
+export type OnCloseButtonClickPayload = undefined;
+export type OnCloseButtonClickResponse = Promise<void>;
 
-  export namespace SaveSettingsAndClose {
-    export type Payload = { userPreferences: UserPreferences };
-    export type Response = Promise<void>;
-  }
+export type SaveSettingsAndClosePayload = { userPreferences: UserPreferences };
+export type SaveSettingsAndCloseResponse = Promise<void>;
 
-  export namespace OpenUserDataDirectory {
-    export type Payload = undefined;
-    export type Response = Promise<void>;
-  }
+export type OpenUserDataDirectoryPayload = undefined;
+export type OpenUserDataDirectoryResponse = Promise<void>;
 
-  export namespace OpenConfirmPrompt {
-    export type Payload = { message: string };
-    export type Response = Promise<boolean>;
-  }
+export type OpenConfirmPromptPayload = { message: string };
+export type OpenConfirmPromptResponse = Promise<boolean>;
 
-  export namespace OpenDirDialog {
-    export type Payload = {
-      workingDirectory: string | undefined;
-      title: string;
-    };
-    export type Response = Promise<string | undefined>;
-  }
+export type OpenDirDialogPayload = {
+  workingDirectory: string | undefined;
+  title: string;
+};
+export type OpenDirDialogResponse = Promise<string | undefined>;
 
-  export namespace OpenExportVideoFilePathDialog {
-    export type Payload = {
-      currentFilePath: string | undefined;
-    };
-    export type Response = Promise<string | undefined>;
-  }
+export type OpenExportVideoFilePathDialogPayload = {
+  currentFilePath: string | undefined;
+};
+export type OpenExportVideoFilePathDialogResponse = Promise<string | undefined>;
 
-  export namespace ExportVideoStart {
-    export type Payload = {
-      ffmpegArguments: string[];
-      videoFilePath: string;
-    };
-    export type Response = Promise<{ code: number; videoFilePath: string }>;
-  }
+export type ExportVideoStartPayload = {
+  ffmpegArguments: string[];
+  videoFilePath: string;
+};
+export type ExportVideoStartResponse = Promise<{ code: number; videoFilePath: string }>;
 
-  export namespace OnExportVideoData {
-    export type Payload = {
-      data: string;
-    };
-    export type Response = Promise<void>;
-  }
+export type OnExportVideoDataPayload = {
+  data: string;
+};
+export type OnExportVideoDataResponse = Promise<void>;
 
-  export namespace ShowItemInFolder {
-    export type Payload = {
-      filePath: string;
-    };
-    export type Response = Promise<void>;
-  }
-}
+export type ShowItemInFolderPayload = {
+  filePath: string;
+};
+export type ShowItemInFolderResponse = Promise<void>;
 
-export default Ipc;
+export type CopyFramesToTempDirectoryPayload = {
+  frameData: Array<{ fileName: string; data: ArrayBuffer }>;
+  tempDirectory: string;
+};
+export type CopyFramesToTempDirectoryResponse = Promise<string>; // Returns the temp directory path
