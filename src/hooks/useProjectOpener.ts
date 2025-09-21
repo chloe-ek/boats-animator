@@ -34,7 +34,8 @@ export const useProjectOpener = () => {
         }
       } catch (permissionError) {
         rLogger.warn("projectOpener.permissionError", `Permission error for ${projectName}: ${permissionError}`);
-        throw new Error(`Cannot access project directory: ${projectName}. The directory may have been moved or permissions were revoked. Please use "Open Project" to re-select the directory.`);
+        rLogger.info("projectOpener.skippingInvalidProject", `Skipping invalid project: ${projectName}`);
+        return;
       }
 
       const projectInfoFileHandle = await projectHandle.getFileHandle("project.boatsinfo");
