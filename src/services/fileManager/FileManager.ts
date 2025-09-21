@@ -162,7 +162,6 @@ export class FileManager {
     const handle = await window.showDirectoryPicker({
       id,
       mode: "readwrite",
-      startIn: "documents",
     });
     rLogger.info("fileManager.selectedDirectory", `Selected directory ${handle.name} for id ${id}`);
     return handle;

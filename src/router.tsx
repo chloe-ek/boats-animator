@@ -2,6 +2,7 @@ import { createHashRouter, Outlet, redirect } from "react-router-dom";
 import { Animator } from "./components/animator/Animator/Animator";
 import App from "./components/common/App/App";
 import { NewProjectModal } from "./components/modals/NewProjectModal/NewProjectModal";
+import { OpenProjectModal } from "./components/modals/OpenProjectModal/OpenProjectModal";
 import PreferencesModal from "./components/modals/PreferencesModal/PreferencesModal";
 import { StartupPage } from "./components/startup/StartupPage/StartupPage";
 import { UiModal } from "./components/ui/UiModal/UiModal";
@@ -40,6 +41,7 @@ export const router = createHashRouter([
         children: [
           { path: "/startup/preferencesModal", element: <PreferencesModal /> },
           { path: "/startup/newProjectModal", element: <NewProjectModal /> },
+          { path: "/startup/openProjectModal", element: <OpenProjectModal /> },
         ],
       },
       {
