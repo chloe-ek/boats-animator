@@ -5,7 +5,8 @@ import { TrackItem } from "../../services/project/types";
 interface ProjectFilesContextProps {
   saveTrackItemToDisk: (take: Take, trackItem: TrackItem, blob: Blob) => Promise<void>;
   deleteTrackItem: (trackItem: TrackItem) => Promise<void>;
-  getTrackItemObjectURL: (trackItem: TrackItem) => string;
+  getTrackItemObjectURL: (trackItem: TrackItem) => string | undefined;
+  loadExistingFrameFiles: (take: Take) => Promise<void>;
 }
 
 export const ProjectFilesContext = createContext<ProjectFilesContextProps | undefined>(undefined);

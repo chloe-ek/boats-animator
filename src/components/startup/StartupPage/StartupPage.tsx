@@ -9,6 +9,7 @@ import SidebarBlock from "../../common/SidebarBlock/SidebarBlock";
 import { SemanticColor } from "../../ui/Theme/SemanticColor";
 import { UiButton } from "../../ui/UiButton/UiButton";
 import NewsFeed from "../NewsFeed/NewsFeed";
+import { RecentProjects } from "../RecentProjects/RecentProjects";
 import { PageRoute } from "../../../services/PageRoute";
 
 export const StartupPage = () => (
@@ -25,11 +26,14 @@ export const StartupPage = () => (
               >
                 New Project
               </UiButton>
-              <UiButton icon={IconName.FOLDER}>Open Project</UiButton>
+              <UiButton icon={IconName.FOLDER} onClick={PageRoute.STARTUP_OPEN_PROJECT_MODAL}>
+                Open Project
+              </UiButton>
             </Group>
             <UiButton icon={IconName.SETTINGS} onClick={PageRoute.STARTUP_PREFERENCES_MODAL}>
               Preferences
             </UiButton>
+            <RecentProjects />
           </Stack>
         </ContentBlock>
       </Content>

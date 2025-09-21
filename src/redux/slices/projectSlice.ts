@@ -72,6 +72,18 @@ const projectSlice = createSlice({
       state.take = action.payload;
     },
 
+    loadProject: (
+      state,
+      action: PayloadAction<{ project: Project; projectDirectoryId: PersistedDirectoryId }>
+    ) => {
+      state.project = { ...action.payload.project };
+      state.projectDirectoryId = action.payload.projectDirectoryId;
+    },
+
+    loadTakes: (state, action: PayloadAction<Take[]>) => {
+      state.take = action.payload.length > 0 ? action.payload[0] : undefined;
+    },
+
     toggleCapturePane: (state) => {
       state.showCapturePane = !state.showCapturePane;
     },
@@ -101,6 +113,8 @@ export const {
   removeFrameTrackItem,
   setPlaybackSpeed,
   addTake,
+  loadProject,
+  loadTakes,
   toggleCapturePane,
   setEnableShortPlay,
   setEnableOnionSkin,
