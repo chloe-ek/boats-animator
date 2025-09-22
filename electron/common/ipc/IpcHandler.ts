@@ -48,6 +48,7 @@ export type OpenExportVideoFilePathDialogResponse = Promise<string | undefined>;
 export type ExportVideoStartPayload = {
   ffmpegArguments: string[];
   videoFilePath: string;
+  originalVideoFilePath: string;
 };
 export type ExportVideoStartResponse = Promise<{ code: number; videoFilePath: string }>;
 

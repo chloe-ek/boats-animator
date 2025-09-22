@@ -38,6 +38,7 @@ const ExportVideoModalRendering = ({
       const response = await window.preload.ipcToMain.exportVideoStart({
         ffmpegArguments: stringToArray(ffmpegArguments) ?? [],
         videoFilePath,
+        originalVideoFilePath,
       });
 
       // Update video path in case it was renamed to prevent overwriting
@@ -50,7 +51,7 @@ const ExportVideoModalRendering = ({
         setData((prevState) => (prevState += `${data.data.trim()}\n-\n`));
       }
     });
-  }, [ffmpegArguments, videoFilePath]);
+  }, [ffmpegArguments, videoFilePath, setVideoFilePath]);
 
   const fileManagerName = () => {
     switch (window.preload.platform) {

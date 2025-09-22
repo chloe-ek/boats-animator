@@ -61,6 +61,10 @@ const ExportVideoModalOptions = ({
         const trackItem = take.frameTrack.trackItems[i];
         const objectURL = getTrackItemObjectURL(trackItem);
         
+        if (!objectURL) {
+          throw new Error(`Object URL for track item "${trackItem.fileName}" is undefined.`);
+        }
+
         // Fetch the blob data
         const response = await fetch(objectURL);
         const blob = await response.blob();
