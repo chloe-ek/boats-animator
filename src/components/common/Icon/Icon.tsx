@@ -4,6 +4,7 @@ import {
   IoAddCircleOutline,
   IoAlbumsOutline,
   IoAlertCircleOutline,
+  IoBan,
   IoCamera,
   IoCameraOutline,
   IoCaretUpCircleOutline,
@@ -152,6 +153,8 @@ const getIconByName = (name: IconName, active: boolean, props: IconBaseProps) =>
       return <IoFilmOutline {...props} />;
     case IconName.WEBSITE:
       return <IoGlobeOutline {...props} />;
+    case IconName.CAMERA_TOGGLE:
+      return <IoBan {...props} />;
   }
 };
 

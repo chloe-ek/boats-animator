@@ -38,6 +38,7 @@ const enum IconName {
   UNDO = "UNDO",
   VIDEO = "VIDEO",
   WEBSITE = "WEBSITE",
+  CAMERA_TOGGLE = "CAMERA_TOGGLE",
 }
 
 export default IconName;
