@@ -147,10 +147,32 @@ class WebMediaDevice implements ImagingDevice {
       const videoTrack = this.stream.getVideoTracks()[0];
       const { width: videoWidth, height: videoHeight } = videoTrack.getSettings();
       rLogger.info("takePhotoDimensions", { videoWidth, videoHeight });
-      return this.imageCapture.takePhoto({
+
+      const photoBlob = await this.imageCapture.takePhoto({
         imageWidth: videoWidth,
         imageHeight: videoHeight,
       });
+
+      const bitmap = await createImageBitmap(photoBlob);
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error("Failed to get 2D context from canvas");
+      }
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+
+      const jpegBlob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject("Failed to encode JPEG")),
+          "image/jpeg",
+          0.95
+        )
+      );
+
+      return jpegBlob;
     } catch (e) {
       rLogger.warn("webMediaDevice.takePhoto.error", `Error running takePhoto '${e}'`);
       throw e;
