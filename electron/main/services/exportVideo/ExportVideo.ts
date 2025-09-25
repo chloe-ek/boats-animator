@@ -1,4 +1,4 @@
-import { path as ffmpegPath } from "@ffmpeg-installer/ffmpeg";
+import ffmpegPath from 'ffmpeg-static';
 import { spawn } from "child_process";
 import { BrowserWindow } from "electron";
 import * as fs from "fs";
@@ -32,7 +32,10 @@ export const render = (
     }
 
     logger.info("exportVideo.render.start", ffmpegArguments.join(" "));
-    const ffmpeg = spawn(ffmpegPath.replace("app.asar", "app.asar.unpacked"), ffmpegArguments);
+    const ffmpeg = spawn(
+      (ffmpegPath as string).replace("app.asar", "app.asar.unpacked"),
+      ffmpegArguments
+    );
 
     // All ffmpeg output goes to stderrdata
     // https://stackoverflow.com/questions/35169650/

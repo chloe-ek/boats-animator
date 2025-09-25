@@ -51,6 +51,7 @@
     "dexie-react-hooks": "^1.1.7",
     "electron-store": "^8.2.0",
     "fast-glob": "^3.3.3",
+    "ffmpeg-static": "^5.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
