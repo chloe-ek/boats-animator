@@ -63,3 +63,6 @@ nsis:
   oneClick: false
   uninstallDisplayName: Boats Animator
   uninstallerSidebar: static/build/setupbanner.bmp
+
+asarUnpack:
+  - "node_modules/ffmpeg-static/**"
