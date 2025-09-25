@@ -32,26 +32,31 @@ const ExportVideoModalRendering = ({
   const isCompletedSuccessfully = exitCode === 0;
 
   useEffect(() => {
-    (async () => {
-      // TODO: take should be conformed before export
+      // take is now conformed before export in the temp export directory (starting from 1)
+      const safeArgs = stringToArray(ffmpegArguments)?.map(arg => arg.trim()).filter(Boolean) ?? [];
 
-      const response = await window.preload.ipcToMain.exportVideoStart({
-        ffmpegArguments: stringToArray(ffmpegArguments) ?? [],
-        videoFilePath,
-        originalVideoFilePath,
-      });
+      (async () => {
+        const response = await window.preload.ipcToMain.exportVideoStart({
+          ffmpegArguments: safeArgs,
+          videoFilePath,
+          originalVideoFilePath,
+        });
 
-      // Update video path in case it was renamed to prevent overwriting
-      setVideoFilePath(response.videoFilePath);
-      setExitCode(response.code);
-    })();
+        // Update video path in case it was renamed to prevent overwriting
+        setVideoFilePath(response.videoFilePath);
+        setExitCode(response.code);
+      })();
+    }, [ffmpegArguments, originalVideoFilePath]);
 
-    return window.preload.ipcToRenderer.onExportVideoData((data) => {
+  useEffect(() => {
+    const unsubscribe = window.preload.ipcToRenderer.onExportVideoData((data) => {
       if (data.data.trim() !== "") {
-        setData((prevState) => (prevState += `${data.data.trim()}\n-\n`));
+        setData(prev => prev + `${data.data.trim()}\n-\n`);
       }
     });
-  }, [ffmpegArguments, videoFilePath, setVideoFilePath]);
+
+    return () => unsubscribe();
+  }, []);
 
   const fileManagerName = () => {
     switch (window.preload.platform) {

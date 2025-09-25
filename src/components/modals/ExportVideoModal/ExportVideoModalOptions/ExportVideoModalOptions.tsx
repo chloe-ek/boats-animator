@@ -119,7 +119,7 @@ const ExportVideoModalOptions = ({
         [
           "-y", // Overwrite output file if it already exists
           `-framerate ${take.frameRate}`,
-          `-start_number 0`,
+          `-start_number 1`, // for conform take frame # start at 1
           "-f image2",
           "-c:v mjpeg", // force codec to mjpeg for input
           `-i "${framePattern}"`,

@@ -95,9 +95,12 @@ class IpcToMainHandler {
     const tempDir = path.join(os.tmpdir(), `boats-animator-export-${Date.now()}`);
     await fs.mkdir(tempDir, { recursive: true });
     
-    // Copy frame files
-    for (const frame of payload.frameData) {
-      const filePath = path.join(tempDir, frame.fileName);
+    // Write frames with sequential numbering
+    for (let i = 0; i < payload.frameData.length; i++) {
+      const frame = payload.frameData[i];
+      const padded = String(i + 1).padStart(5, "0");
+      const fileName = `ba_001_01_frame_${padded}.jpg`;
+      const filePath = path.join(tempDir, fileName);
       await fs.writeFile(filePath, Buffer.from(frame.data));
     }
     
