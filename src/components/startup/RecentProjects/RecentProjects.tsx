@@ -1,6 +1,6 @@
 import { Stack, Text, Group, ActionIcon, Tooltip, Button } from "@mantine/core";
 import { useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { notifications } from "@mantine/notifications";
 import { db } from "../../../services/database/Database";
 import { useProjectOpener } from "../../../hooks/useProjectOpener";
 import IconName from "../../common/Icon/IconName";
@@ -36,15 +36,16 @@ export const RecentProjects = () => {
     } catch (error) {
       rLogger.error("recentProjects.openError", `Failed to open recent project: ${error}`);
       
-      // If it's a permission error, automatically remove the invalid entry
-      if (error instanceof Error && (
-        error.message.includes("Permission denied") || 
-        error.message.includes("Cannot access project directory") ||
-        error.message.includes("NotAllowedError")
-      )) {
-        rLogger.info("recentProjects.removingInvalidEntry", `Removing invalid recent project entry: ${projectEntry.friendlyName}`);
-        await handleRemoveRecentProject(projectEntry.id);
-      }
+      // Show user-friendly notification and remove invalid entry
+      notifications.show({
+        title: "Cannot Open Project",
+        message: `The project "${projectEntry.friendlyName}" could not be opened. It may have been moved, deleted, or is no longer accessible.`,
+        color: "orange",
+        autoClose: 5000,
+      });
+      
+      // Automatically remove the invalid entry
+      await handleRemoveRecentProject(projectEntry.id);
     }
   }, [openProject, handleRemoveRecentProject]);
 
