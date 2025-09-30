@@ -6,8 +6,7 @@ import { NewsResponsePost } from "../../../services/news/NewsResponse";
 import "./NewsFeed.css";
 
 /**
- * Sanitizes text using DOMPurify
- * Clean and professional XSS protection
+ * Sanitizes text using DOMPurify to avoid XSS 
  */
 const sanitizeText = (text: string): string => {
   return DOMPurify.sanitize(text, { 
