@@ -4,7 +4,6 @@ import { BrowserWindow } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import IpcChannel from "../../../common/ipc/IpcChannel";
-import * as Ipc from "../../../common/ipc/IpcHandler";
 import { filePathWithoutExtension } from "../fileUtils/fileUtils";
 import { sendToRenderer } from "../ipcToMainHandler/IpcToMainHandler";
 import logger from "../logger/Logger";

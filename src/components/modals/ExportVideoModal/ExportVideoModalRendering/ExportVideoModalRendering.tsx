@@ -46,7 +46,7 @@ const ExportVideoModalRendering = ({
         setVideoFilePath(response.videoFilePath);
         setExitCode(response.code);
       })();
-    }, [ffmpegArguments, originalVideoFilePath]);
+    }, [ffmpegArguments, originalVideoFilePath, videoFilePath]);
 
   useEffect(() => {
     const unsubscribe = window.preload.ipcToRenderer.onExportVideoData((data) => {

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useCallback } from "react";
 import useProjectDirectory from "../../hooks/useProjectDirectory";
 import { FileInfo, FileInfoType } from "../../services/fileManager/FileInfo";
 import {
@@ -64,7 +64,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
    * Loads existing frame files from disk for a given take.
    * Scans the take directory, matches files to trackItems using their stored fileName property.
    */
-  const loadExistingFrameFiles = async (take: Take) => {
+  const loadExistingFrameFiles = useCallback(async (take: Take) => {
     if (!projectDirectory) {
       rLogger.warn("loadExistingFrameFiles.noProjectDirectory", "No project directory available");
       return;
@@ -145,7 +145,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
     } catch (e) {
       rLogger.error("loadExistingFrameFiles.directoryError", `Error accessing take directory: ${e}`);
     }
-  };
+  }, [projectDirectory, fileManager]);
 
   const getTrackItemObjectURL = (trackItem: TrackItem): string | undefined => {
     const fileInfo = fileManager.findFile(trackItem.fileInfoId);
@@ -204,7 +204,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
         // We need to access the private fileInfos array to add the new file info
         (fileManager as any).fileInfos = [...(fileManager as any).fileInfos, newFileInfo];
         
-      } catch (e) {
+      } catch {
         rLogger.info(
           "projectFilesContext.saveProject.create",
           `Creating new project info file in ${projectDirectory.handle.name}`
@@ -233,7 +233,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
       rLogger.info("projectFilesContext.autoLoadFrames", `Auto-loading frame files for take: ${take.shotNumber}_${take.takeNumber}`);
       loadExistingFrameFiles(take);
     }
-  }, [take, projectDirectory]);
+  }, [take, projectDirectory, fileManager, loadExistingFrameFiles]);
 
   // Saves project data to disk when it changes
   useEffect(() => {
