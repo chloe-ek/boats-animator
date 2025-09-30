@@ -5,6 +5,7 @@ import { loadProject, loadTakes } from "../redux/slices/projectSlice";
 import { addProjectDirectoryEntry } from "../services/database/PersistedDirectoryEntry";
 import { PageRoute } from "../services/PageRoute";
 import { ProjectInfoFileV1 } from "../services/project/types";
+import { trackRecentProject } from "./useRecentProjects";
 import * as rLogger from "../services/rLogger/rLogger";
 
 /**
@@ -52,6 +53,8 @@ export const useProjectOpener = () => {
       }
 
       const projectDirectoryEntry = await addProjectDirectoryEntry(projectName, projectHandle);
+
+      trackRecentProject(projectDirectoryEntry.id);
 
       dispatch(loadProject({ 
         project: projectInfo.project, 

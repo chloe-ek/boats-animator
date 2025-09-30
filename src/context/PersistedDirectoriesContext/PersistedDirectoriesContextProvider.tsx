@@ -11,6 +11,7 @@ import {
   DirectoryAccessPermissionError,
   ProjectDirectoryIsInsideAnotherProjectError,
 } from "./PersistedDirectoriesErrors";
+import { trackRecentProject } from "../../hooks/useRecentProjects";
 import * as rLogger from "../../services/rLogger/rLogger";
 import { Project } from "../../services/project/types";
 import { PROJECT_DIRECTORY_EXTENSION } from "../../services/utils";
@@ -67,7 +68,11 @@ export const PersistedDirectoriesContextProvider = ({
       throw "Unable to create project directory";
     }
 
-    return addProjectDirectoryEntry(project.name, handle);
+    const projectDirectoryEntry = await addProjectDirectoryEntry(project.name, handle);
+    
+    trackRecentProject(projectDirectoryEntry.id);
+    
+    return projectDirectoryEntry;
   };
 
   return (
