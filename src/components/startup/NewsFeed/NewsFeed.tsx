@@ -1,8 +1,20 @@
 import { useEffect, useState } from "react";
+import DOMPurify from "dompurify";
 import { fetchRecent } from "../../../services/news/NewsApi";
 import NewsDownloadError from "../../../services/news/NewsDownloadError";
 import { NewsResponsePost } from "../../../services/news/NewsResponse";
 import "./NewsFeed.css";
+
+/**
+ * Sanitizes text using DOMPurify
+ * Clean and professional XSS protection
+ */
+const sanitizeText = (text: string): string => {
+  return DOMPurify.sanitize(text, { 
+    ALLOWED_TAGS: [], // Remove all HTML tags for plain text
+    ALLOWED_ATTR: []  // Remove all attributes
+  });
+};
 
 const NewsFeed = () => {
   const [newPosts, setNewsPosts] = useState<NewsResponsePost[]>([]);
@@ -32,7 +44,7 @@ const NewsFeed = () => {
           <div key={post.id}>
             <h3>
               <a href="#" onClick={() => window.preload.openExternal.newsPost(post.url)}>
-                {post.title}
+                {sanitizeText(post.title)}
               </a>
             </h3>
             <p className="news-feed__date">
@@ -43,7 +55,9 @@ const NewsFeed = () => {
               })}
             </p>
 
-            <div dangerouslySetInnerHTML={{ __html: post.excerpt }}></div>
+            <div className="news-feed__excerpt">
+              {sanitizeText(post.excerpt)}
+            </div>
           </div>
         ))
       )}
