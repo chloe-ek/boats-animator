@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 
 interface CaptureContextProps {
   captureImage: () => void;
+  captureImageAtIndex: (index: number) => void;
 }
 
 export const CaptureContext = createContext<CaptureContextProps | undefined>(undefined);
