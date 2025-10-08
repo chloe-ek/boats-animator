@@ -1,6 +1,6 @@
 import { notifications } from "@mantine/notifications";
 import { ReactNode } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import cameraSound from "../../audio/camera.wav";
 import useProjectAndTake from "../../hooks/useProjectAndTake";
 import { RootState } from "../../redux/store";
@@ -10,6 +10,11 @@ import * as rLogger from "../../services/rLogger/rLogger";
 import { useImagingDeviceContext } from "../ImagingDeviceContext/ImagingDeviceContext";
 import { CaptureContext } from "./CaptureContext";
 import { useProjectFilesContext } from "../ProjectFilesContext.tsx/ProjectFilesContext";
+import { insertFrameTrackItemAt } from "../../redux/slices/projectSlice";
+import { FileInfoType } from "../../services/fileManager/FileInfo";
+import { makeTakeDirectoryName } from "../../services/project/projectBuilder";
+import { useFileManagerContext } from "../FileManagerContext/FileManagerContext";
+import useProjectDirectory from "../../hooks/useProjectDirectory";
 
 interface CaptureContextProviderProps {
   children: ReactNode;
@@ -22,6 +27,9 @@ const CaptureContextProvider = ({ children }: CaptureContextProviderProps) => {
   );
   const { saveTrackItemToDisk } = useProjectFilesContext();
   const { captureImageRaw, deviceStatus } = useImagingDeviceContext();
+  const dispatch = useDispatch();
+  const fileManager = useFileManagerContext();
+  const projectDirectory = useProjectDirectory();
 
   const captureImage = async () => {
     rLogger.info("captureContextProvider.captureImage");
@@ -57,10 +65,64 @@ const CaptureContextProvider = ({ children }: CaptureContextProviderProps) => {
     }
   };
 
+  const captureImageAtIndex = async (index: number) => {
+    rLogger.info("captureContextProvider.captureImageAtIndex", `Inserting at index ${index}`);
+    if (deviceStatus === undefined) {
+      rLogger.info("captureDeviceNotReady", "Nothing captured as device is not ready yet");
+      return;
+    }
+
+    if (!projectDirectory) {
+      throw "Unable to find project directory";
+    }
+
+    if (playCaptureSound) {
+      rLogger.info("playCaptureSound");
+      const audio = new Audio(cameraSound);
+      audio.play();
+    }
+
+    try {
+      const imageData = await captureImageRaw();
+      if (imageData === undefined) {
+        throw "Unable to captureImage as no imageData returned";
+      }
+
+      const fileNumber = getNextFileNumber(take.frameTrack);
+      const trackItem = makeFrameTrackItem(take, fileNumber);
+
+      const takeDirectoryName = makeTakeDirectoryName(take);
+      const takeDirectoryHandle = await fileManager.createDirectory(
+        takeDirectoryName,
+        projectDirectory.handle
+      );
+
+      await fileManager.createFile(
+        trackItem.fileInfoId,
+        trackItem.fileName,
+        takeDirectoryHandle,
+        FileInfoType.FRAME,
+        imageData
+      );
+
+      dispatch(insertFrameTrackItemAt({ trackItem, index }));
+    } catch (e) {
+      rLogger.warn(
+        "captureImageAtIndexError",
+        `There was an unexpected error capturing at index ${index}: ${e}`
+      );
+      notifications.show({
+        message:
+          "There was an unexpected error capturing with this Capture Source. Please wait and try again.",
+      });
+    }
+  };
+
   return (
     <CaptureContext.Provider
       value={{
         captureImage,
+        captureImageAtIndex,
       }}
     >
       {children}

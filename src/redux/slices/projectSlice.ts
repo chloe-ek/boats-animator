@@ -1,11 +1,9 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { PersistedDirectoryId, TrackItemId } from "../../services/Flavors";
-import { Project } from "../../services/project/types";
-import { Take } from "../../services/project/types";
-import { TrackItem } from "../../services/project/types";
+import { Project, Take, TrackItem } from "../../services/project/types";
 import {
-  DEFAULT_ONION_SKIN_OPACITY,
   DEFAULT_ONION_SKIN_FRAMES_VISIBLE,
+  DEFAULT_ONION_SKIN_OPACITY,
 } from "../../services/utils";
 
 interface ProjectState {
@@ -63,6 +61,26 @@ const projectSlice = createSlice({
       }
       state.take?.frameTrack.trackItems.splice(index, 1);
     },
+    // Add Redux actions for frame reordering and insertion
+    reorderFrameTrackItems: (
+      state,
+      action: PayloadAction<{ fromIndex: number; toIndex: number }>
+    ) => {
+      if (!state.take) return;
+      const { fromIndex, toIndex } = action.payload;
+      const items = state.take.frameTrack.trackItems;
+      const [movedItem] = items.splice(fromIndex, 1);
+      items.splice(toIndex, 0, movedItem);
+    },
+
+    insertFrameTrackItemAt: (
+      state,
+      action: PayloadAction<{ trackItem: TrackItem; index: number }>
+    ) => {
+      if (!state.take) return;
+      const { trackItem, index } = action.payload;
+      state.take.frameTrack.trackItems.splice(index, 0, trackItem);
+    },
 
     setPlaybackSpeed: (state, action: PayloadAction<number>) => {
       state.playbackSpeed = action.payload;
@@ -111,6 +129,8 @@ export const {
   updateProject,
   addFrameTrackItem,
   removeFrameTrackItem,
+  reorderFrameTrackItems,
+  insertFrameTrackItemAt,
   setPlaybackSpeed,
   addTake,
   loadProject,

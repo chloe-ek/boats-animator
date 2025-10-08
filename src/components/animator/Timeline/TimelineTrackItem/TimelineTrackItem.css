@@ -44,3 +44,43 @@
   width: calc(var(--margin-100) * 2 + 100%);
   left: calc(var(--margin-100) * -1);
 }
+
+.timeline-track-item__drag-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 100%;
+  z-index: 20;
+  background: linear-gradient(90deg, transparent 0%, var(--ba-light-10) 50%, var(--ba-light-20) 100%);
+  border-radius: 0 var(--margin-025) var(--margin-025) 0;
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+  pointer-events: none; /* Make it purely visual */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-track-item__drag-handle::before {
+  content: '';
+  width: 2px;
+  height: 12px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--ba-light-60) 0px,
+    var(--ba-light-60) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  border-radius: 1px;
+}
+
+.timeline-track-item:hover .timeline-track-item__drag-handle {
+  opacity: 0.8;
+}
+
+.timeline-track-item__drag-handle:active {
+  cursor: grabbing;
+  background: linear-gradient(90deg, transparent 0%, var(--ba-light-20) 50%, var(--ba-light-30) 100%);
+}

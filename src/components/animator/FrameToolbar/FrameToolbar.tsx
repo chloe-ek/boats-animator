@@ -8,15 +8,23 @@ import IconName from "../../common/Icon/IconName";
 import { UiActionIcon } from "../../ui/UiActionIcon/UiActionIcon";
 import { TitleToolbarTimestamp } from "./TitleToolbarTimestamp/TitleToolbarTimestamp";
 import { PageRoute } from "../../../services/PageRoute";
+import { useCaptureContext } from "../../../context/CaptureContext/CaptureContext";
 
 export const FrameToolbar = () => {
   const { take } = useProjectAndTake();
 
   const { liveViewVisible, timelineIndex } = usePlaybackContext();
+  const { captureImageAtIndex } = useCaptureContext();
   const frameTrack = useSelector((state: RootState) => state.project.take?.frameTrack);
   if (frameTrack === undefined) {
     throw "No frame track found in FrameToolbar";
   }
+
+  const handleInsertFrame = async () => {
+    if (timelineIndex !== undefined) {
+      await captureImageAtIndex(timelineIndex + 1);
+    }
+  };
 
   return (
     <Group
@@ -36,6 +44,11 @@ export const FrameToolbar = () => {
       >
         {timelineIndex === undefined ? "Undo Last Frame" : `Delete Frame ${timelineIndex + 1}`}
       </UiActionIcon>
+      {timelineIndex !== undefined && (
+        <UiActionIcon icon={IconName.ADD} onClick={handleInsertFrame}>
+          Insert Frame After
+        </UiActionIcon>
+      )}
     </Group>
   );
 };
