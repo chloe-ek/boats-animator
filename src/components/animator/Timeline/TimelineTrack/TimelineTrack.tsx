@@ -43,6 +43,7 @@ const TimelineTrack = ({
       {track.trackItems.length > 0 ? (
         <>
           {track.trackItems.map((trackItem, i) => {
+            const frameIndex = getTrackItemStartPosition(track, i);
             return (
               <TimelineTrackItem
                 title={getTrackItemTitle(track, i)}
@@ -51,6 +52,7 @@ const TimelineTrack = ({
                 key={trackItem.id}
                 onClick={() => onClickItem(i)}
                 onDelete={() => handleDeleteFrame(i)}
+                frameIndex={frameIndex}
               />
             );
           })}

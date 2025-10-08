@@ -2,6 +2,8 @@ import classNames from "classnames";
 import { useCallback, useState } from "react";
 import "./TimelineTrackItem.css";
 import ContextMenu from "../../../common/ContextMenu/ContextMenu";
+import { usePlaybackContext } from "../../../../context/PlaybackContext/PlaybackContext";
+import { TimelineIndex } from "../../../../services/Flavors";
 
 interface TimelineTrackItemProps {
   title: string;
@@ -9,10 +11,12 @@ interface TimelineTrackItemProps {
   highlighted: boolean;
   onClick: () => void;
   onDelete?: () => void;
+  frameIndex: TimelineIndex;
 }
 
-const TimelineTrackItem = ({ title, dataUrl, highlighted, onClick, onDelete }: TimelineTrackItemProps) => {
+const TimelineTrackItem = ({ title, dataUrl, highlighted, onClick, onDelete, frameIndex }: TimelineTrackItemProps) => {
   const [menu, setMenu] = useState({ show: false, x: 0, y: 0 });
+  const { playFromHere } = usePlaybackContext();
 
   const scrollRef = useCallback((div: HTMLDivElement | null) => {
     if (div && highlighted) (div as any)?.scrollIntoViewIfNeeded();
@@ -46,6 +50,7 @@ const TimelineTrackItem = ({ title, dataUrl, highlighted, onClick, onDelete }: T
         visible={menu.show}
         position={{ x: menu.x, y: menu.y }}
         items={[
+          { label: "Play from here", onClick: () => playFromHere(frameIndex), disabled: false },
           { label: "Delete", onClick: onDelete || (() => {}), disabled: !onDelete },
           { label: "More...", onClick: () => {}, disabled: false }
         ]}
