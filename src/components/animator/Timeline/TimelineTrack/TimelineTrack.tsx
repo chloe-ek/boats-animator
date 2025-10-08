@@ -1,8 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import { useProjectFilesContext } from "../../../../context/ProjectFilesContext.tsx/ProjectFilesContext";
+import { usePlaybackContext } from "../../../../context/PlaybackContext/PlaybackContext";
 import { FileInfoType } from "../../../../services/fileManager/FileInfo";
 import {
   getHighlightedTrackItem,
   getTrackItemTitle,
+  getTrackItemStartPosition,
 } from "../../../../services/project/projectCalculator";
 import TimelineLiveViewButton from "../TimelineLiveView/TimelineLiveView";
 import TimelineTrackItem from "../TimelineTrackItem/TimelineTrackItem";
@@ -10,6 +13,7 @@ import TimelineTrackNoItems from "../TimelineTrackNoItems/TimelineTrackNoItems";
 import "./TimelineTrack.css";
 import { TimelineIndex } from "../../../../services/Flavors";
 import { Track } from "../../../../services/project/types";
+import { PageRoute } from "../../../../services/PageRoute";
 import {
   DndContext,
   closestCenter,
@@ -40,16 +44,27 @@ const TimelineTrack = ({
   onClickItem,
   onClickLiveView,
 }: TimelineTrackProps) => {
+  const navigate = useNavigate();
   const highlightedTrackItem = getHighlightedTrackItem(track, timelineIndex);
   const { getTrackItemObjectURL } = useProjectFilesContext();
+  const { stopPlayback } = usePlaybackContext();
   const dispatch = useDispatch();
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before starting drag
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const handleDeleteFrame = (trackItemIndex: number) => {
+    stopPlayback(getTrackItemStartPosition(track, trackItemIndex));
+    navigate(PageRoute.ANIMATOR_DELETE_FRAME);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -71,6 +86,7 @@ const TimelineTrack = ({
             strategy={verticalListSortingStrategy}
           >
             {track.trackItems.map((trackItem, i) => {
+              const frameIndex = getTrackItemStartPosition(track, i);
               return (
                 <TimelineTrackItem
                   title={getTrackItemTitle(track, i)}
@@ -79,6 +95,8 @@ const TimelineTrack = ({
                   key={trackItem.id}
                   trackItemId={trackItem.id}
                   onClick={() => onClickItem(i)}
+                  onDelete={() => handleDeleteFrame(i)}
+                  frameIndex={frameIndex}
                 />
               );
             })}
