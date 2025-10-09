@@ -1,13 +1,18 @@
 import { Group } from "@mantine/core";
 import { useCaptureContext } from "../../../context/CaptureContext/CaptureContext";
-import { usePlaybackContext } from "../../../context/PlaybackContext/PlaybackContext";
+import { PlaybackFrameName, usePlaybackContext } from "../../../context/PlaybackContext/PlaybackContext";
 import IconName from "../../common/Icon/IconName";
 import { UiActionIcon, UiActionIconRole } from "../../ui/UiActionIcon/UiActionIcon";
-import { useEffect } from "react";
+import { useHotkeys } from "../../../hooks/useHotkeys";
 
 export const PreviewToolbar = () => {
   const { captureImage } = useCaptureContext();
-  const { stopPlayback, liveViewVisible } = usePlaybackContext();
+  const { 
+    stopPlayback, 
+    liveViewVisible, 
+    displayFrame, 
+    deleteFrameAtCurrentTimelineIndex 
+  } = usePlaybackContext();
 
   const handleClickCaptureButton = () => {
     if (!liveViewVisible) {
@@ -16,19 +21,14 @@ export const PreviewToolbar = () => {
     captureImage();
   };
 
-  // hotkey for space to capture frame
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === " ") {
-        e.preventDefault();
-        handleClickCaptureButton();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [liveViewVisible]);
+  useHotkeys({
+    takePicture: handleClickCaptureButton,
+    prevFrame: () => displayFrame(PlaybackFrameName.PREVIOUS),
+    nextFrame: () => displayFrame(PlaybackFrameName.NEXT),
+    firstFrame: () => displayFrame(PlaybackFrameName.FIRST),
+    lastFrame: () => displayFrame(PlaybackFrameName.LAST),
+    deleteFrame: () => deleteFrameAtCurrentTimelineIndex(),
+  });
 
   return (
     <Group justify="center">
