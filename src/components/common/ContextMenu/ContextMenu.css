@@ -1,0 +1,54 @@
+.context-menu {
+  position: fixed;
+  background: var(--mantine-color-body);
+  border: var(--ba-theme-border);
+  border-radius: var(--mantine-radius-sm);
+  box-shadow: var(--mantine-shadow-md);
+  padding: 4px 0;
+  z-index: 1000;
+  min-width: 150px;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.context-menu__item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--mantine-color-text);
+  font-size: inherit;
+  transition: background-color 0.1s ease;
+}
+
+.context-menu__item:hover:not(.context-menu__item--disabled) {
+  background: var(--mantine-color-gray-1);
+}
+
+.context-menu__item:focus {
+  outline: none;
+  background: var(--mantine-color-blue-1);
+}
+
+.context-menu__item--disabled {
+  color: var(--mantine-color-dimmed);
+  cursor: not-allowed;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .context-menu {
+    background: var(--mantine-color-dark-6);
+    border-color: var(--mantine-color-dark-4);
+  }
+
+  .context-menu__item:hover:not(.context-menu__item--disabled) {
+    background: var(--mantine-color-dark-5);
+  }
+
+  .context-menu__item:focus {
+    background: var(--mantine-color-blue-8);
+  }
+}

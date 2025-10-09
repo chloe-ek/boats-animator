@@ -126,6 +126,13 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
     notifications.show({ message: "Deleted frame" });
   };
 
+  const playFromHere = (frameIndex: TimelineIndex) => {
+    _logPlayback("playback.playFromHere");
+    stopPlayback(frameIndex);
+    lastFrameIndex.current = playForDuration - 1;
+    startRAF();
+  };
+
   const _startPlayback = () => {
     _logPlayback("playback.startPlayback");
     if (playForDuration > 0) {
@@ -201,6 +208,7 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
     stopPlayback,
     displayFrame,
     deleteFrameAtCurrentTimelineIndex,
+    playFromHere,
     timelineIndex,
     liveViewVisible: timelineIndex === undefined,
     playing,

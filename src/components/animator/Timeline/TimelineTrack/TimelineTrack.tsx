@@ -1,8 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import { useProjectFilesContext } from "../../../../context/ProjectFilesContext.tsx/ProjectFilesContext";
+import { usePlaybackContext } from "../../../../context/PlaybackContext/PlaybackContext";
 import { FileInfoType } from "../../../../services/fileManager/FileInfo";
 import {
   getHighlightedTrackItem,
   getTrackItemTitle,
+  getTrackItemStartPosition,
 } from "../../../../services/project/projectCalculator";
 import TimelineLiveViewButton from "../TimelineLiveView/TimelineLiveView";
 import TimelineTrackItem from "../TimelineTrackItem/TimelineTrackItem";
@@ -10,6 +13,23 @@ import TimelineTrackNoItems from "../TimelineTrackNoItems/TimelineTrackNoItems";
 import "./TimelineTrack.css";
 import { TimelineIndex } from "../../../../services/Flavors";
 import { Track } from "../../../../services/project/types";
+import { PageRoute } from "../../../../services/PageRoute";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useDispatch } from "react-redux";
+import { reorderFrameTrackItems } from "../../../../redux/slices/projectSlice";
 
 interface TimelineTrackProps {
   track: Track;
@@ -24,24 +44,63 @@ const TimelineTrack = ({
   onClickItem,
   onClickLiveView,
 }: TimelineTrackProps) => {
+  const navigate = useNavigate();
   const highlightedTrackItem = getHighlightedTrackItem(track, timelineIndex);
   const { getTrackItemObjectURL } = useProjectFilesContext();
+  const { stopPlayback } = usePlaybackContext();
+  const dispatch = useDispatch();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before starting drag
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDeleteFrame = (trackItemIndex: number) => {
+    stopPlayback(getTrackItemStartPosition(track, trackItemIndex));
+    navigate(PageRoute.ANIMATOR_DELETE_FRAME);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = track.trackItems.findIndex((item) => item.id === active.id);
+      const newIndex = track.trackItems.findIndex((item) => item.id === over.id);
+
+      dispatch(reorderFrameTrackItems({ fromIndex: oldIndex, toIndex: newIndex }));
+    }
+  };
 
   return (
     <div className="timeline-track">
       {track.trackItems.length > 0 ? (
-        <>
-          {track.trackItems.map((trackItem, i) => {
-            return (
-              <TimelineTrackItem
-                title={getTrackItemTitle(track, i)}
-                dataUrl={getTrackItemObjectURL(trackItem)}
-                highlighted={highlightedTrackItem?.id === trackItem.id}
-                key={trackItem.id}
-                onClick={() => onClickItem(i)}
-              />
-            );
-          })}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={track.trackItems.map((item) => item.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {track.trackItems.map((trackItem, i) => {
+              const frameIndex = getTrackItemStartPosition(track, i);
+              return (
+                <TimelineTrackItem
+                  title={getTrackItemTitle(track, i)}
+                  dataUrl={getTrackItemObjectURL(trackItem)}
+                  highlighted={highlightedTrackItem?.id === trackItem.id}
+                  key={trackItem.id}
+                  trackItemId={trackItem.id}
+                  onClick={() => onClickItem(i)}
+                  onDelete={() => handleDeleteFrame(i)}
+                  frameIndex={frameIndex}
+                />
+              );
+            })}
+          </SortableContext>
 
           {track.fileType === FileInfoType.FRAME && (
             <TimelineLiveViewButton
@@ -49,7 +108,7 @@ const TimelineTrack = ({
               onClick={onClickLiveView}
             />
           )}
-        </>
+        </DndContext>
       ) : (
         <TimelineTrackNoItems fileType={track.fileType} />
       )}
