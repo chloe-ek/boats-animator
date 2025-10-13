@@ -1,12 +1,14 @@
 import { Group } from "@mantine/core";
 import { useCaptureContext } from "../../../context/CaptureContext/CaptureContext";
 import { PlaybackFrameName, usePlaybackContext } from "../../../context/PlaybackContext/PlaybackContext";
+import { useImagingDeviceContext } from "../../../context/ImagingDeviceContext/ImagingDeviceContext";
 import IconName from "../../common/Icon/IconName";
 import { UiActionIcon, UiActionIconRole } from "../../ui/UiActionIcon/UiActionIcon";
 import { useHotkeys } from "../../../hooks/useHotkeys";
 
 export const PreviewToolbar = () => {
   const { captureImage } = useCaptureContext();
+  const { deviceIdentifier, deviceStatus } = useImagingDeviceContext();
   const { 
     stopPlayback, 
     liveViewVisible, 
@@ -21,8 +23,10 @@ export const PreviewToolbar = () => {
     captureImage();
   };
 
+  const isCameraDisabled = !deviceIdentifier || !deviceStatus;
+
   useHotkeys({
-    takePicture: handleClickCaptureButton,
+    takePicture: isCameraDisabled ? undefined : handleClickCaptureButton,
     prevFrame: () => displayFrame(PlaybackFrameName.PREVIOUS),
     nextFrame: () => displayFrame(PlaybackFrameName.NEXT),
     firstFrame: () => displayFrame(PlaybackFrameName.FIRST),
@@ -36,6 +40,7 @@ export const PreviewToolbar = () => {
         icon={IconName.CAPTURE}
         onClick={handleClickCaptureButton}
         role={UiActionIconRole.CAPTURE}
+        disabled={isCameraDisabled}
       >
         Capture Frame
       </UiActionIcon>

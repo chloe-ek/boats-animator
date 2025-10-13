@@ -9,12 +9,14 @@ import { UiActionIcon } from "../../ui/UiActionIcon/UiActionIcon";
 import { TitleToolbarTimestamp } from "./TitleToolbarTimestamp/TitleToolbarTimestamp";
 import { PageRoute } from "../../../services/PageRoute";
 import { useCaptureContext } from "../../../context/CaptureContext/CaptureContext";
+import { useImagingDeviceContext } from "../../../context/ImagingDeviceContext/ImagingDeviceContext";
 
 export const FrameToolbar = () => {
   const { take } = useProjectAndTake();
 
   const { liveViewVisible, timelineIndex } = usePlaybackContext();
   const { captureImageAtIndex } = useCaptureContext();
+  const { deviceIdentifier, deviceStatus } = useImagingDeviceContext();
   const frameTrack = useSelector((state: RootState) => state.project.take?.frameTrack);
   if (frameTrack === undefined) {
     throw "No frame track found in FrameToolbar";
@@ -25,6 +27,8 @@ export const FrameToolbar = () => {
       await captureImageAtIndex(timelineIndex + 1);
     }
   };
+
+  const isCameraDisabled = !deviceIdentifier || !deviceStatus;
 
   return (
     <Group
@@ -45,7 +49,11 @@ export const FrameToolbar = () => {
         {timelineIndex === undefined ? "Undo Last Frame" : `Delete Frame ${timelineIndex + 1}`}
       </UiActionIcon>
       {timelineIndex !== undefined && (
-        <UiActionIcon icon={IconName.ADD} onClick={handleInsertFrame}>
+        <UiActionIcon 
+          icon={IconName.ADD} 
+          onClick={handleInsertFrame}
+          disabled={isCameraDisabled}
+        >
           Insert Frame After
         </UiActionIcon>
       )}

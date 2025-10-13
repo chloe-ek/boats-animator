@@ -2,10 +2,17 @@ import { app } from "electron";
 import * as fs from "fs";
 import LogLevel from "../../../common/LogLevel";
 
-const USER_DATA_PATH = app.getPath("userData");
-const LOG_FILE_PATH = app.isPackaged
-  ? `${USER_DATA_PATH}/boats-animator.log`
-  : `${USER_DATA_PATH}/boats-animator-development.log`;
+let USER_DATA_PATH: string;
+let LOG_FILE_PATH: string;
+
+const initializePaths = () => {
+  if (!USER_DATA_PATH) {
+    USER_DATA_PATH = app.getPath("userData");
+    LOG_FILE_PATH = app.isPackaged
+      ? `${USER_DATA_PATH}/boats-animator.log`
+      : `${USER_DATA_PATH}/boats-animator-development.log`;
+  }
+};
 
 export enum ProcessName {
   MAIN = "MAIN",
@@ -18,6 +25,8 @@ class Logger {
   private stream: fs.WriteStream | undefined;
 
   initialize() {
+    initializePaths();
+
     if (fs.existsSync(LOG_FILE_PATH)) {
       this.info("logger.clear", "Log file cleared", false);
 
@@ -63,7 +72,7 @@ class Logger {
     if (this.stream) {
       this.stream.write(`${logLine}\n`);
     } else if (writeToFile) {
-      throw "Logger must be initialized first!";
+      initializePaths();
     }
   }
 

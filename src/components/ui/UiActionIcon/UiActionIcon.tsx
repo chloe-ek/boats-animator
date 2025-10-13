@@ -20,10 +20,11 @@ interface UiActionIconProps {
   open?: boolean;
   children: string;
   role?: UiActionIconRole;
+  disabled?: boolean;
 }
 
 export const UiActionIcon = forwardRef<HTMLButtonElement, UiActionIconProps>(
-  ({ icon, onClick, open = false, children, role = UiActionIconRole.DEFAULT }, ref) => {
+  ({ icon, onClick, open = false, children, role = UiActionIconRole.DEFAULT, disabled = false }, ref) => {
     const navigate = useNavigate();
     const handleClick = () => (typeof onClick === "string" ? navigate(onClick) : onClick?.());
 
@@ -46,12 +47,13 @@ export const UiActionIcon = forwardRef<HTMLButtonElement, UiActionIconProps>(
     })();
 
     return (
-      <Tooltip label={open ? `Close ${children}` : children}>
+      <Tooltip label={disabled ? "Camera not selected" : (open ? `Close ${children}` : children)}>
         <ActionIcon
           variant="subtle"
           color={SemanticColor.SECONDARY}
-          onClick={handleClick}
+          onClick={disabled ? undefined : handleClick}
           aria-label={children}
+          disabled={disabled}
           {...roleProps[0]}
           {...openProps}
           ref={ref}
