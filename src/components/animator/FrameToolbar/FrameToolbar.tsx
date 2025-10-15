@@ -1,30 +1,30 @@
 import { Group } from "@mantine/core";
 import { useSelector } from "react-redux";
+import { useImagingDeviceContext } from "../../../context/ImagingDeviceContext/ImagingDeviceContext";
 import { usePlaybackContext } from "../../../context/PlaybackContext/PlaybackContext";
 import useProjectAndTake from "../../../hooks/useProjectAndTake";
 import { RootState } from "../../../redux/store";
+import { PageRoute } from "../../../services/PageRoute";
 import { getTrackLength } from "../../../services/project/projectCalculator";
 import IconName from "../../common/Icon/IconName";
 import { UiActionIcon } from "../../ui/UiActionIcon/UiActionIcon";
 import { TitleToolbarTimestamp } from "./TitleToolbarTimestamp/TitleToolbarTimestamp";
-import { PageRoute } from "../../../services/PageRoute";
-import { useCaptureContext } from "../../../context/CaptureContext/CaptureContext";
-import { useImagingDeviceContext } from "../../../context/ImagingDeviceContext/ImagingDeviceContext";
 
 export const FrameToolbar = () => {
   const { take } = useProjectAndTake();
 
-  const { liveViewVisible, timelineIndex } = usePlaybackContext();
-  const { captureImageAtIndex } = useCaptureContext();
+  const { liveViewVisible, timelineIndex, startInsertMode } = usePlaybackContext();
   const { deviceIdentifier, deviceStatus } = useImagingDeviceContext();
   const frameTrack = useSelector((state: RootState) => state.project.take?.frameTrack);
   if (frameTrack === undefined) {
     throw "No frame track found in FrameToolbar";
   }
 
-  const handleInsertFrame = async () => {
+  const handleInsertFrame = () => {
     if (timelineIndex !== undefined) {
-      await captureImageAtIndex(timelineIndex + 1);
+      // Start insert mode instead of capturing immediately
+      // This will switch to live view so user can see what they're capturing
+      startInsertMode(timelineIndex);
     }
   };
 

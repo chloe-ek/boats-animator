@@ -9,11 +9,12 @@ import { useHotkeys } from "../../../hooks/useHotkeys";
 export const PreviewToolbar = () => {
   const { captureImage } = useCaptureContext();
   const { deviceIdentifier, deviceStatus } = useImagingDeviceContext();
-  const { 
-    stopPlayback, 
-    liveViewVisible, 
-    displayFrame, 
-    deleteFrameAtCurrentTimelineIndex 
+  const {
+    stopPlayback,
+    liveViewVisible,
+    displayFrame,
+    deleteFrameAtCurrentTimelineIndex,
+    insertModeIndex
   } = usePlaybackContext();
 
   const handleClickCaptureButton = () => {
@@ -24,6 +25,11 @@ export const PreviewToolbar = () => {
   };
 
   const isCameraDisabled = !deviceIdentifier || !deviceStatus;
+
+  // Show different text when in insert mode
+  const captureButtonText = insertModeIndex !== undefined
+    ? `Insert Frame After ${insertModeIndex + 1}`
+    : "Capture Frame";
 
   useHotkeys({
     takePicture: isCameraDisabled ? undefined : handleClickCaptureButton,
@@ -42,7 +48,7 @@ export const PreviewToolbar = () => {
         role={UiActionIconRole.CAPTURE}
         disabled={isCameraDisabled}
       >
-        Capture Frame
+        {captureButtonText}
       </UiActionIcon>
     </Group>
   );
