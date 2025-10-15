@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useCallback } from "react";
+import { ReactNode, useCallback, useEffect } from "react";
 import useProjectDirectory from "../../hooks/useProjectDirectory";
 import { FileInfo, FileInfoType } from "../../services/fileManager/FileInfo";
 import {
@@ -11,10 +11,8 @@ import { ProjectFilesContext } from "./ProjectFilesContext";
 import { useDispatch, useSelector } from "react-redux";
 import { addFrameTrackItem, removeFrameTrackItem } from "../../redux/slices/projectSlice";
 import { RootState } from "../../redux/store";
+import { Project, Take, TrackItem } from "../../services/project/types";
 import * as rLogger from "../../services/rLogger/rLogger";
-import { Project } from "../../services/project/types";
-import { Take } from "../../services/project/types";
-import { TrackItem } from "../../services/project/types";
 import { PROJECT_INFO_FILE_NAME } from "../../services/utils";
 
 interface ProjectFilesContextProviderProps {
@@ -32,7 +30,8 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
   const saveTrackItemToDisk = async (
     take: Take,
     trackItem: TrackItem,
-    data: Blob
+    data: Blob,
+    skipReduxDispatch = false
   ): Promise<void> => {
     if (projectDirectory === undefined) {
       throw "Missing projectDirectory";
@@ -51,7 +50,10 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
       FileInfoType.FRAME,
       data
     );
-    dispatch(addFrameTrackItem(trackItem));
+
+    if (!skipReduxDispatch) {
+      dispatch(addFrameTrackItem(trackItem));
+    }
   };
 
   const deleteTrackItem = async (trackItem: TrackItem) => {

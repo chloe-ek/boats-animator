@@ -3,7 +3,7 @@ import { Take } from "../../services/project/types";
 import { TrackItem } from "../../services/project/types";
 
 interface ProjectFilesContextProps {
-  saveTrackItemToDisk: (take: Take, trackItem: TrackItem, blob: Blob) => Promise<void>;
+  saveTrackItemToDisk: (take: Take, trackItem: TrackItem, blob: Blob, skipReduxDispatch?: boolean) => Promise<void>;
   deleteTrackItem: (trackItem: TrackItem) => Promise<void>;
   getTrackItemObjectURL: (trackItem: TrackItem) => string | undefined;
   loadExistingFrameFiles: (take: Take) => Promise<void>;

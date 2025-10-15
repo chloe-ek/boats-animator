@@ -33,4 +33,25 @@ const getLastFileNumberInTrack = (track: Track): number => track.trackItems.at(-
 
 export const getNextFileNumber = (track: Track): number => getLastFileNumberInTrack(track) + 1;
 
+/**
+ * Returns the next available unique file number not currently used by any track item.
+ * This is useful when inserting frames in the middle of a track to avoid filename conflicts.
+ */
+export const getNextAvailableFileNumber = (track: Track): number => {
+  if (track.trackItems.length === 0) {
+    return 1;
+  }
+
+  // Get all existing file numbers
+  const existingNumbers = new Set(track.trackItems.map(item => item.fileNumber));
+
+  // Find the first unused number starting from 1
+  let candidate = 1;
+  while (existingNumbers.has(candidate)) {
+    candidate++;
+  }
+
+  return candidate;
+};
+
 export const getLastTrackItem = (track: Track): TrackItem | undefined => track.trackItems.at(-1);
