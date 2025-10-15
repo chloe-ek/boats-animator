@@ -49,12 +49,12 @@ export const router = createHashRouter([
         element: (
           <ProjectFilesContextProvider>
             <ImagingDeviceContextProvider>
-              <CaptureContextProvider>
-                <PlaybackContextProvider>
+              <PlaybackContextProvider>
+                <CaptureContextProvider>
                   <Outlet />
                   <Animator />
-                </PlaybackContextProvider>
-              </CaptureContextProvider>
+                </CaptureContextProvider>
+              </PlaybackContextProvider>
             </ImagingDeviceContextProvider>
           </ProjectFilesContextProvider>
         ),
