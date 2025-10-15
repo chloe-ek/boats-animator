@@ -5,16 +5,13 @@ import cameraSound from "../../audio/camera.wav";
 import useProjectAndTake from "../../hooks/useProjectAndTake";
 import { RootState } from "../../redux/store";
 import { makeFrameTrackItem } from "../../services/project/projectBuilder";
-import { getNextFileNumber } from "../../services/project/projectCalculator";
+import { getNextFileNumber, getNextAvailableFileNumber } from "../../services/project/projectCalculator";
 import * as rLogger from "../../services/rLogger/rLogger";
 import { useImagingDeviceContext } from "../ImagingDeviceContext/ImagingDeviceContext";
 import { CaptureContext } from "./CaptureContext";
 import { useProjectFilesContext } from "../ProjectFilesContext.tsx/ProjectFilesContext";
 import { insertFrameTrackItemAt } from "../../redux/slices/projectSlice";
-import { FileInfoType } from "../../services/fileManager/FileInfo";
-import { makeTakeDirectoryName } from "../../services/project/projectBuilder";
-import { useFileManagerContext } from "../FileManagerContext/FileManagerContext";
-import useProjectDirectory from "../../hooks/useProjectDirectory";
+import { usePlaybackContext } from "../PlaybackContext/PlaybackContext";
 
 interface CaptureContextProviderProps {
   children: ReactNode;
@@ -28,13 +25,20 @@ const CaptureContextProvider = ({ children }: CaptureContextProviderProps) => {
   const { saveTrackItemToDisk } = useProjectFilesContext();
   const { captureImageRaw, deviceStatus } = useImagingDeviceContext();
   const dispatch = useDispatch();
-  const fileManager = useFileManagerContext();
-  const projectDirectory = useProjectDirectory();
+  const { insertModeIndex, cancelInsertMode } = usePlaybackContext();
 
   const captureImage = async () => {
     rLogger.info("captureContextProvider.captureImage");
     if (deviceStatus === undefined) {
       rLogger.info("captureDeviceNotReady", "Nothing captured as device is not ready yet");
+      return;
+    }
+
+    // Check if we're in insert mode
+    if (insertModeIndex !== undefined) {
+      rLogger.info("captureImage.insertMode", `Capturing in insert mode at index ${insertModeIndex + 1}`);
+      await captureImageAtIndex(insertModeIndex + 1);
+      cancelInsertMode();
       return;
     }
 
@@ -72,10 +76,6 @@ const CaptureContextProvider = ({ children }: CaptureContextProviderProps) => {
       return;
     }
 
-    if (!projectDirectory) {
-      throw "Unable to find project directory";
-    }
-
     if (playCaptureSound) {
       rLogger.info("playCaptureSound");
       const audio = new Audio(cameraSound);
@@ -88,24 +88,17 @@ const CaptureContextProvider = ({ children }: CaptureContextProviderProps) => {
         throw "Unable to captureImage as no imageData returned";
       }
 
-      const fileNumber = getNextFileNumber(take.frameTrack);
+      // Use getNextAvailableFileNumber to avoid filename conflicts when inserting
+      const fileNumber = getNextAvailableFileNumber(take.frameTrack);
       const trackItem = makeFrameTrackItem(take, fileNumber);
 
-      const takeDirectoryName = makeTakeDirectoryName(take);
-      const takeDirectoryHandle = await fileManager.createDirectory(
-        takeDirectoryName,
-        projectDirectory.handle
-      );
+      // Save to disk only (without dispatching addFrameTrackItem)
+      await saveTrackItemToDisk(take, trackItem, imageData, true);
 
-      await fileManager.createFile(
-        trackItem.fileInfoId,
-        trackItem.fileName,
-        takeDirectoryHandle,
-        FileInfoType.FRAME,
-        imageData
-      );
-
+      // Insert at specific index - this is the only place we add to redux
       dispatch(insertFrameTrackItemAt({ trackItem, index }));
+
+      rLogger.info("captureImageAtIndex.success", `Successfully inserted frame at index ${index}`);
     } catch (e) {
       rLogger.warn(
         "captureImageAtIndexError",
