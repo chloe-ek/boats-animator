@@ -1,4 +1,4 @@
-import { ReactNode, useRef } from "react";
+import { ReactNode, useRef, useState } from "react";
 import useLinkedRefAndState from "../../hooks/useLinkedRefAndState";
 import useRequestAnimationFrame from "../../hooks/useRequestAnimationFrame";
 import {
@@ -20,10 +20,6 @@ interface PlaybackContextProviderProps {
 
 const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => {
   const take = useSelector((state: RootState) => state.project.take);
-  if (take === undefined) {
-    throw "PlaybackContext requires a take";
-  }
-
   const { deleteTrackItem } = useProjectFilesContext();
 
   const shortPlayLength = useSelector(
@@ -32,15 +28,17 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
   const playbackSpeed = useSelector((state: RootState) => state.project.playbackSpeed);
   const enableShortPlay = useSelector((state: RootState) => state.project.enableShortPlay);
 
-  const playForDuration = getTrackLength(take.frameTrack);
+  const playForDuration = take ? getTrackLength(take.frameTrack) : 0;
 
   // An `undefined` timeline index indicates the application is showing the live view
   const [timelineIndex, timelineIndexRef, setTimelineIndex] = useLinkedRefAndState<
     TimelineIndex | undefined
   >(undefined);
   const [playing, playingRef, setPlaying] = useLinkedRefAndState(false);
+  // When in insert mode, the next capture will insert a frame after this index
+  const [insertModeIndex, setInsertModeIndex] = useState<TimelineIndex | undefined>(undefined);
 
-  const delay = 1000 / take.frameRate / playbackSpeed;
+  const delay = take ? 1000 / take.frameRate / playbackSpeed : 1000;
   const previousTime = useRef<number>(0);
   const lastFrameIndex = useRef<TimelineIndex>(0);
 
@@ -91,6 +89,9 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
     } else {
       setTimelineIndex(i);
     }
+
+    // Cancel insert mode when playback is stopped
+    setInsertModeIndex(undefined);
   };
 
   const displayFrame = (name: PlaybackFrameName) => {
@@ -107,6 +108,14 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
   };
 
   const deleteFrameAtCurrentTimelineIndex = async () => {
+    if (!take) {
+      rLogger.info(
+        "playback.deleteFrameAtCurrentTimelineIndex.noAction",
+        "nothing was deleted as no take is loaded"
+      );
+      return;
+    }
+
     const highlightedTrackItem = getHighlightedTrackItem(take.frameTrack, timelineIndex);
     const trackItem = highlightedTrackItem ?? getLastTrackItem(take.frameTrack);
     if (trackItem === undefined) {
@@ -131,6 +140,20 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
     stopPlayback(frameIndex);
     lastFrameIndex.current = playForDuration - 1;
     startRAF();
+  };
+
+  const startInsertMode = (afterIndex: TimelineIndex) => {
+    _logPlayback("playback.startInsertMode");
+    rLogger.info("playback.startInsertMode", `Insert mode started after index ${afterIndex}`);
+    setInsertModeIndex(afterIndex);
+    // Switch to live view so user can see what they're capturing
+    setTimelineIndex(undefined);
+  };
+
+  const cancelInsertMode = () => {
+    _logPlayback("playback.cancelInsertMode");
+    rLogger.info("playback.cancelInsertMode", "Insert mode cancelled");
+    setInsertModeIndex(undefined);
   };
 
   const _startPlayback = () => {
@@ -199,7 +222,7 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
   const _logPlayback = (loggingCode: string) =>
     rLogger.info(loggingCode, {
       playForDuration,
-      frameRate: take.frameRate,
+      frameRate: take?.frameRate ?? 0,
       timelineIndex: timelineIndexRef.current ?? "(showing live view)",
     });
 
@@ -209,7 +232,10 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
     displayFrame,
     deleteFrameAtCurrentTimelineIndex,
     playFromHere,
+    startInsertMode,
+    cancelInsertMode,
     timelineIndex,
+    insertModeIndex,
     liveViewVisible: timelineIndex === undefined,
     playing,
   };

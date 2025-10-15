@@ -14,7 +14,10 @@ export interface PlaybackContextProps {
   displayFrame: (name: PlaybackFrameName) => void;
   deleteFrameAtCurrentTimelineIndex: () => Promise<void>;
   playFromHere: (frameIndex: TimelineIndex) => void;
+  startInsertMode: (afterIndex: TimelineIndex) => void;
+  cancelInsertMode: () => void;
   timelineIndex: TimelineIndex | undefined;
+  insertModeIndex: TimelineIndex | undefined;
   liveViewVisible: boolean;
   playing: boolean;
 }
