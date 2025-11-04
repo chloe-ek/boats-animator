@@ -1,9 +1,9 @@
 import { Stack } from "@mantine/core";
 import { useCallback, useMemo, useState } from "react";
-import { DirectoryAccessPermissionError} from "../../../context/PersistedDirectoriesContext/PersistedDirectoriesErrors";
+import { DirectoryAccessPermissionError } from "../../../context/PersistedDirectoriesContext/PersistedDirectoriesErrors";
 import { useProjectOpener } from "../../../hooks/useProjectOpener";
 import { useFileManagerContext } from "../../../context/FileManagerContext/FileManagerContext";
-import { PROJECT_INFO_FILE_NAME, PROJECT_DIRECTORY_EXTENSION } from "../../../services/utils";
+import { PROJECT_INFO_FILE_NAME, PROJECT_DIRECTORY_EXTENSION, DEFAULT_PROJECT_NAME } from "../../../services/utils";
 import { ProjectInfoFileV1 } from "../../../services/project/types";
 import IconName from "../../common/Icon/IconName";
 import { SemanticColor } from "../../ui/Theme/SemanticColor";
@@ -40,6 +40,7 @@ export const OpenProjectModal = () => {
     projectInfo: undefined as ProjectInfoFileV1 | undefined,
     generalError: undefined as string | undefined,
     directoryError: undefined as string | undefined,
+    isPicking: false as boolean,
   });
 
   // Memoized helper functions for better performance
@@ -58,6 +59,7 @@ export const OpenProjectModal = () => {
       projectInfo: undefined,
       generalError: undefined,
       directoryError: undefined,
+      isPicking: false,
     });
   }, []);
 
@@ -76,8 +78,9 @@ export const OpenProjectModal = () => {
     if (!projectInfo.project || !projectInfo.takes) {
       throw new Error("Invalid project file structure");
     }
-    if (!projectInfo.project.name || !projectInfo.project.directoryName) {
-      throw new Error("Project is missing required fields");
+
+    if (!Array.isArray(projectInfo.takes)) {
+      throw new Error("Invalid project file structure");
     }
     if (!projectInfo.takes.every(take => take.frameTrack?.trackItems)) {
       throw new Error("Take is missing required frameTrack structure");
@@ -85,20 +88,46 @@ export const OpenProjectModal = () => {
   }, []);
 
   const onSelectProjectDirectory = useCallback(async () => {
+    // prevent re-entrancy while picker is open
+    if (formState.isPicking) return;
     clearFormErrors();
-    
+
     try {
+      setFormState(prev => ({ ...prev, isPicking: true }));
       const projectDirectoryHandle = await fileManager.openDirectoryDialog("openProject");
-      if (!projectDirectoryHandle) return;
+      if (!projectDirectoryHandle) {
+        // user cancelled
+        setFormState(prev => ({ ...prev, isPicking: false }));
+        return;
+      }
 
       if (!projectDirectoryHandle.name.endsWith(`.${PROJECT_DIRECTORY_EXTENSION}`)) {
         setError('directory', `Please select a valid project folder (ending with .${PROJECT_DIRECTORY_EXTENSION})`);
+        setFormState(prev => ({ ...prev, isPicking: false }));
         return;
       }
       const projectInfoFile = await projectDirectoryHandle.getFileHandle(PROJECT_INFO_FILE_NAME);
       const projectData = await projectInfoFile.getFile();
       const projectInfoText = await projectData.text();
       const parsedProjectInfo: ProjectInfoFileV1 = JSON.parse(projectInfoText);
+
+      // compatibility mode: projects without a name
+      if (parsedProjectInfo.project) {
+        if (!parsedProjectInfo.project.directoryName) {
+          parsedProjectInfo.project.directoryName = projectDirectoryHandle.name;
+          rLogger.warn(
+            "openProjectModal.migrateMissingDirectoryName",
+            `directoryName missing in project file; inferred as ${projectDirectoryHandle.name}`
+          );
+        }
+        if (typeof parsedProjectInfo.project.name !== "string") {
+          parsedProjectInfo.project.name = DEFAULT_PROJECT_NAME;
+          rLogger.warn(
+            "openProjectModal.migrateMissingName",
+            `name missing in project file; defaulted to ${DEFAULT_PROJECT_NAME}`
+          );
+        }
+      }
 
       validateProjectInfo(parsedProjectInfo);
 
@@ -108,16 +137,21 @@ export const OpenProjectModal = () => {
         selectedProjectHandle: projectDirectoryHandle,
         selectedProjectPath: `./${projectDirectoryHandle.name}`,
       }));
-      
+
       rLogger.info("openProjectModal.projectSelected", `Selected project: ${parsedProjectInfo.project.name}`);
     } catch (e) {
       clearFormState();
-      
+
       if (e instanceof DirectoryAccessPermissionError) {
         setError('general', ERROR_MESSAGES.PERMISSION_DENIED);
       } else if (e instanceof DOMException) {
-        const message = e.name === "NotFoundError" 
-          ? ERROR_MESSAGES.PROJECT_FILE_MISSING 
+        if (e.name === "NotAllowedError") {
+          // File picker already active; ignore gracefully
+          rLogger.warn("openProjectModal.pickerAlreadyActive", `${e.name}: ${e.message}`);
+          return;
+        }
+        const message = e.name === "NotFoundError"
+          ? ERROR_MESSAGES.PROJECT_FILE_MISSING
           : ERROR_MESSAGES.INVALID_PROJECT;
         setError('directory', message);
         rLogger.warn("openProjectModal.invalidProject", `${e.name}: ${e.message}`);
@@ -128,8 +162,10 @@ export const OpenProjectModal = () => {
         setError('general', ERROR_MESSAGES.UNKNOWN_ERROR);
         rLogger.error("openProjectModal.unknownError", `${e}`);
       }
+    } finally {
+      setFormState(prev => ({ ...prev, isPicking: false }));
     }
-  }, [fileManager, clearFormErrors, clearFormState, validateProjectInfo, setError]);
+  }, [fileManager, clearFormErrors, clearFormState, validateProjectInfo, setError, formState.isPicking]);
 
   const onOpenProject = useCallback(async () => {
     const { selectedProjectHandle, projectInfo } = formState;
@@ -151,12 +187,12 @@ export const OpenProjectModal = () => {
   }, [formState, clearFormErrors, setError, openProject]);
 
   // Memoized computed values for better performance
-  const isProjectSelected = useMemo(() => 
-    Boolean(formState.selectedProjectHandle && formState.projectInfo), 
+  const isProjectSelected = useMemo(() =>
+    Boolean(formState.selectedProjectHandle && formState.projectInfo),
     [formState.selectedProjectHandle, formState.projectInfo]
   );
 
-  const chooseButtonColor = useMemo(() => 
+  const chooseButtonColor = useMemo(() =>
     formState.selectedProjectHandle ? SemanticColor.SECONDARY : SemanticColor.PRIMARY,
     [formState.selectedProjectHandle]
   );
@@ -169,7 +205,7 @@ export const OpenProjectModal = () => {
             {formState.generalError}
           </UiAlert>
         )}
-        
+
         <UiTextInput
           label="Select project folder"
           value={formState.selectedProjectPath}
@@ -180,6 +216,7 @@ export const OpenProjectModal = () => {
             <UiButton
               onClick={onSelectProjectDirectory}
               semanticColor={chooseButtonColor}
+              disabled={formState.isPicking}
             >
               Choose Project
             </UiButton>
