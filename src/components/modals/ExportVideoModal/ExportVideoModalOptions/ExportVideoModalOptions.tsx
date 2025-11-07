@@ -156,6 +156,12 @@ const ExportVideoModalOptions = ({
                   </InputGroup>
                 </InputGroup>
 
+                {currentFilePath === "" && (
+                  <div style={{ fontSize: "0.9em", color: "#999", marginTop: "-8px", marginBottom: "16px" }}>
+                    Please select an export location
+                  </div>
+                )}
+
                 <InputGroup>
                   <InputLabel inputId="exportVideoQualityPreset">Quality Preset</InputLabel>
                   <InputSelect
@@ -191,6 +197,7 @@ const ExportVideoModalOptions = ({
               color={ButtonColor.PRIMARY}
               icon={IconName.VIDEO}
               onClick={startExportVideo}
+              disabled={currentFilePath === ""}
             />
           </ToolbarItem>
         </Toolbar>
