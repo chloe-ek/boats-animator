@@ -69,9 +69,18 @@ export const NewProjectModal = () => {
 
   const onSubmitNewProject = async () => {
     clearFormErrors();
+
+    const uniqueDirectoryName = makeUniqueProjectDirectoryNameIfRequired(project.directoryName);
+
+    let finalProjectName = project.name;
+    if (uniqueDirectoryName !== project.directoryName && !project.name.trim()) {
+      finalProjectName = uniqueDirectoryName.replace(`.${PROJECT_DIRECTORY_EXTENSION}`, "");
+    }
+
     const formattedProject: Project = {
       ...project,
-      directoryName: makeUniqueProjectDirectoryNameIfRequired(project.directoryName),
+      name: finalProjectName,
+      directoryName: uniqueDirectoryName,
     };
 
     try {

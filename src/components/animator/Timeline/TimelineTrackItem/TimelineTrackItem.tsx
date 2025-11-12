@@ -27,7 +27,7 @@ const TimelineTrackItem = ({
   frameIndex,
 }: TimelineTrackItemProps) => {
   const [menu, setMenu] = useState({ show: false, x: 0, y: 0 });
-  const { playFromHere } = usePlaybackContext();
+  const { playFromHere, startInsertMode } = usePlaybackContext();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: trackItemId,
   });
@@ -97,6 +97,7 @@ const TimelineTrackItem = ({
         position={{ x: menu.x, y: menu.y }}
         items={[
           { label: "Play from here", onClick: () => playFromHere(frameIndex), disabled: false },
+          { label: "Insert after here", onClick: () => startInsertMode(frameIndex), disabled: false },
           { label: "Delete", onClick: onDelete || (() => {}), disabled: !onDelete },
           { label: "More...", onClick: () => {}, disabled: false }
         ]}
