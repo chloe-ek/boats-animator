@@ -23,6 +23,7 @@ import {
   IoLogoDiscord,
   IoNewspaperOutline,
   IoPauseOutline,
+  IoPencilOutline,
   IoPlayBackOutline,
   IoPlayCircleOutline,
   IoPlayForwardOutline,
@@ -43,6 +44,7 @@ import {
   IoVideocam,
   IoWalkOutline,
 } from "react-icons/io5";
+import { TiPencil } from "react-icons/ti";
 import "./Icon.css";
 import IconName from "./IconName";
 import { forwardRef } from "react";
@@ -101,6 +103,8 @@ const getIconByName = (name: IconName, active: boolean, props: IconBaseProps) =>
       return <IoNewspaperOutline {...props} />;
     case IconName.ONION_SKIN:
       return <IoWalkOutline {...props} />;
+    case IconName.PENCIL:
+      return <TiPencil {...props} />;
     case IconName.PLAY_FIRST:
       return <IoPlaySkipBackOutline {...props} />;
     case IconName.PLAY_PREVIOUS:

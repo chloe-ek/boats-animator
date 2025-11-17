@@ -32,9 +32,39 @@ export const makeProject = ({
   fileInfoId: uuidv4(),
 });
 
-const makeProjectDirectoryName = (name: string) => {
-  const directoryName = name
-    .replace(/[<>:"/\\|?*.]/g, "")
+
+const INVALID_FILENAME_CHARS = /[<>:"/\\|?*.]/g;
+
+/**
+ * Removes invalid filename characters from a string.
+ */
+const removeInvalidFilenameChars = (name: string): string => {
+  return name.replace(INVALID_FILENAME_CHARS, "");
+};
+
+/**
+ * Validates a project name and returns an error message if invalid, or null if valid.
+ */
+export const validateProjectName = (name: string): string | null => {
+  const trimmed = name.trim();
+
+  if (!trimmed) {
+    return "Project name cannot be empty";
+  }
+
+  // Check if the name contains invalid characters by comparing before/after sanitization
+  const sanitized = removeInvalidFilenameChars(trimmed);
+  if (sanitized !== trimmed) {
+    const invalidChars = trimmed.match(INVALID_FILENAME_CHARS);
+    const uniqueInvalidChars = [...new Set(invalidChars || [])].join(" ");
+    return `Project name cannot contain the following characters: ${uniqueInvalidChars}`;
+  }
+
+  return null;
+};
+
+export const makeProjectDirectoryName = (name: string) => {
+  const directoryName = removeInvalidFilenameChars(name)
     .substring(0, 60)
     .trim()
     .replace(/ /g, "-");
