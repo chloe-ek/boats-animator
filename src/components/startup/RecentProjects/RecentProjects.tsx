@@ -48,7 +48,7 @@ const copyDirectoryRecursive = async (
 const deleteDirectoryRecursive = async (
   dirHandle: FileSystemDirectoryHandle
 ): Promise<void> => {
-  for await (const [name, handle] of dirHandle.entries()) {
+  for await (const [_, handle] of dirHandle.entries()) {
     if (handle.kind === "file") {
       await (handle as any).remove();
     } else if (handle.kind === "directory") {
@@ -142,7 +142,18 @@ const updateProjectInfoFile = async (
     throw new Error("Permission denied for project directory");
   }
 
-  const projectInfoFileHandle = await projectEntry.handle.getFileHandle(PROJECT_INFO_FILE_NAME);
+  // Validate that the directory handle is still valid before accessing files
+  // This is especially important after a rename operation
+  let projectInfoFileHandle: FileSystemFileHandle;
+  try {
+    projectInfoFileHandle = await projectEntry.handle.getFileHandle(PROJECT_INFO_FILE_NAME);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "NotFoundError") {
+      throw new Error(`Project directory not found. The directory may have been moved or deleted.`);
+    }
+    throw e;
+  }
+
   const projectInfoFile = await projectInfoFileHandle.getFile();
   const projectInfoText = await projectInfoFile.text();
   const projectInfo: ProjectInfoFileV1 = JSON.parse(projectInfoText);

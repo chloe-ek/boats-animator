@@ -16,9 +16,10 @@ export interface PersistedDirectoryEntry {
 }
 
 const getWorkingDirectoryEntry = async () =>
-  db.persistedDirectories.get({
-    type: PersistedDirectoryType.WORKING_DIRECTORY,
-  });
+  db.persistedDirectories
+    .where('type')
+    .equals(PersistedDirectoryType.WORKING_DIRECTORY)
+    .first();
 
 export const putOrAddWorkingDirectoryEntry = async (handle: FileSystemDirectoryHandle) => {
   const workingDirectory = await getWorkingDirectoryEntry();

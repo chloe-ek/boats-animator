@@ -39,7 +39,18 @@ export const useProjectOpener = () => {
         return;
       }
 
-      const projectInfoFileHandle = await projectHandle.getFileHandle("project.boatsinfo");
+      // Validate that the directory handle is still valid by attempting to access it
+      // This is especially important after a rename operation where the old directory may have been deleted
+      let projectInfoFileHandle: FileSystemFileHandle;
+      try {
+        projectInfoFileHandle = await projectHandle.getFileHandle("project.boatsinfo");
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "NotFoundError") {
+          throw new Error(`Project directory not found. The project "${projectName}" may have been moved, renamed, or deleted. Please use "Open Project" to re-select the directory.`);
+        }
+        throw e;
+      }
+
       const projectInfoFile = await projectInfoFileHandle.getFile();
       const projectInfoText = await projectInfoFile.text();
       const projectInfo: ProjectInfoFileV1 = JSON.parse(projectInfoText);

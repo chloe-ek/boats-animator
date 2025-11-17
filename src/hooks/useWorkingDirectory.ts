@@ -3,9 +3,14 @@ import { db } from "../services/database/Database";
 import { PersistedDirectoryType } from "../services/database/PersistedDirectoryEntry";
 
 const useWorkingDirectory = () => {
-  const persistedDirectoryEntry = useLiveQuery(() =>
-    db.persistedDirectories.get({ type: PersistedDirectoryType.WORKING_DIRECTORY })
-  );
+  const persistedDirectoryEntry = useLiveQuery(async () => {
+    const result = await db.persistedDirectories
+      .where('type')
+      .equals(PersistedDirectoryType.WORKING_DIRECTORY)
+      .first();
+
+    return result ?? undefined;
+  });
 
   return persistedDirectoryEntry;
 };
