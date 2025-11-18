@@ -10,7 +10,7 @@ const ExportVideoModal = () => {
     return (
       <ExportVideoModalOptions
         onSubmit={setFFmpegArguments}
-        onVideoFilePathChange={setVideoFilePath}
+        onVideoFilePathChange={(outputPath) => setVideoFilePath(outputPath)}
       />
     );
   } else {
@@ -18,6 +18,7 @@ const ExportVideoModal = () => {
       <ExportVideoModalRendering
         ffmpegArguments={ffmpegArguments}
         originalVideoFilePath={videoFilePath}
+        onFinalOutputPath={(finalPath) => setVideoFilePath(finalPath)}
       />
     );
   }

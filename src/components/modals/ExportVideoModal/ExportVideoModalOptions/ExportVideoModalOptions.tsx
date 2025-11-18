@@ -104,6 +104,8 @@ const ExportVideoModalOptions = ({
         return;
       }
 
+      console.log("Exporting to:", outputPath);
+      onVideoFilePathChange(outputPath);
       onSubmit(updatedFFmpegArguments);
 
     } catch (error) {

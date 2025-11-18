@@ -19,11 +19,13 @@ import { stringToArray } from "../../../../services/utils";
 interface ExportVideoModalRenderingProps {
   ffmpegArguments: string;
   originalVideoFilePath: string;
+  onFinalOutputPath(finalPath: string): void;
 }
 
 const ExportVideoModalRendering = ({
   ffmpegArguments,
   originalVideoFilePath,
+  onFinalOutputPath,
 }: ExportVideoModalRenderingProps) => {
   const [data, setData] = useState("");
   const [videoFilePath, setVideoFilePath] = useState(originalVideoFilePath);
@@ -46,13 +48,13 @@ const ExportVideoModalRendering = ({
         setVideoFilePath(response.videoFilePath);
         setExitCode(response.code);
       })();
-    }, [ffmpegArguments, originalVideoFilePath, videoFilePath]);
+    }, []);
 
   useEffect(() => {
-    const unsubscribe = window.preload.ipcToRenderer.onExportVideoData((data) => {
-      if (data.data.trim() !== "") {
-        setData(prev => prev + `${data.data.trim()}\n-\n`);
-      }
+    const unsubscribe = window.preload.ipcToRenderer.onExportTakeFinished(({ outputPath }) => {
+      console.log("Final output path received:", outputPath);
+      setVideoFilePath(outputPath);
+      onFinalOutputPath(outputPath);
     });
 
     return () => unsubscribe();
