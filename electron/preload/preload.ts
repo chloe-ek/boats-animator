@@ -51,6 +51,8 @@ export const api = {
       payload: Ipc.CopyFramesToTempDirectoryPayload
     ): Ipc.CopyFramesToTempDirectoryResponse =>
       ipcRenderer.invoke(IpcChannel.COPY_FRAMES_TO_TEMP_DIRECTORY, payload),
+    conformTake: (payload: any) => ipcRenderer.invoke(IpcChannel.CONFORM_TAKE, payload),
+    exportTake: (payload: any) => ipcRenderer.invoke(IpcChannel.EXPORT_TAKE, payload),
   },
   ipcToRenderer: {
     onCloseButtonClick: (callback: (payload: Ipc.OnCloseButtonClickPayload) => void) =>
@@ -62,6 +64,18 @@ export const api = {
     discord: () => shell.openExternal("http://discord.boatsanimator.com"),
     newsPost: (url: string) => shell.openExternal(url),
     website: () => shell.openExternal("https://www.charlielee.uk/boats-animator"),
+  },
+  getDirectoryPath: async (handle: FileSystemDirectoryHandle): Promise<string> => {
+    // @ts-ignore - non-standard method but supported in Chromium-based Electron
+    const originPrivateDirectory = await navigator.storage.getDirectory();
+    const relativePath = await originPrivateDirectory.resolve(handle);
+
+    if (!relativePath) {
+      throw new Error("Could not resolve FileSystemDirectoryHandle to a path.");
+    }
+
+    // Construct the full OS path using the user's working directory
+    return path.join(process.cwd(), ...relativePath);
   },
 };
 

@@ -7,6 +7,8 @@ import IpcChannel from "../../../common/ipc/IpcChannel";
 import { filePathWithoutExtension } from "../fileUtils/fileUtils";
 import { sendToRenderer } from "../ipcToMainHandler/IpcToMainHandler";
 import logger from "../logger/Logger";
+import { conformTake } from "./TakeConformer";
+import { ConformResult } from "./TakeConformer";
 
 export const render = (
   win: BrowserWindow,
@@ -52,3 +54,70 @@ export const render = (
       });
     });
   });
+
+export interface ExportTakeWithConformOptions {
+  projectPath: string;
+  takeId: string;
+  orderedFramePaths: string[];
+  fps: number;
+  outputPath: string;
+}
+
+/**
+ * High-level export that:
+ *  1) Builds a conformed, timeline-ordered folder under the project
+ *  2) Runs ffmpeg against that folder to produce a video
+ *
+ * Even if ffmpeg fails, the conform folder + mapping will still exist.
+ */
+export async function exportTakeWithConform(
+  opts: ExportTakeWithConformOptions
+): Promise<ConformResult> {
+  const { projectPath, takeId, orderedFramePaths, fps, outputPath } = opts;
+
+  // 1) Build conform (this is what makes your frames usable even if export fails)
+  const conformResult = await conformTake(projectPath, takeId, orderedFramePaths);
+  const conformDir = conformResult.conformDir;
+
+  // 2) Use conform frames for ffmpeg export
+  const inputPattern = path.join(conformDir, "%06d.png"); // or jpg, depending on your capture
+
+  logger.info(
+    `ExportTakeWithConform: exporting take ${takeId} from ${inputPattern} to ${outputPath} @${fps}fps`
+  );
+
+  await new Promise<void>((resolve, reject) => {
+    const args = [
+      "-y",
+      "-framerate",
+      String(fps),
+      "-i",
+      inputPattern,
+      "-c:v",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      outputPath,
+    ];
+
+    const ffmpeg = spawn("ffmpeg", args);
+
+    ffmpeg.stdout.on("data", (data) => logger.info(`ffmpeg stdout: ${data}`));
+    ffmpeg.stderr.on("data", (data) => logger.info(`ffmpeg stderr: ${data}`));
+
+    ffmpeg.on("error", (err) => reject(err));
+
+    ffmpeg.on("close", (code) => {
+      if (code === 0) {
+        logger.info(`ExportTakeWithConform: Export succeeded: ${outputPath}`);
+        resolve();
+      } else {
+        reject(new Error(`ffmpeg exited with code ${code}`));
+      }
+    });
+  });
+
+  // DO NOT delete conformResult.conformDir here – user may want to copy it.
+
+  return conformResult;
+}

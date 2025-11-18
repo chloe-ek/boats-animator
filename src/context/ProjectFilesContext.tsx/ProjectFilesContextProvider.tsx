@@ -21,7 +21,9 @@ interface ProjectFilesContextProviderProps {
 
 export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextProviderProps) => {
   const fileManager = useFileManagerContext();
-
+    const findFile = (fileInfoId: string) => {
+    return fileManager.findFile(fileInfoId);
+  };
   const projectDirectory = useProjectDirectory();
   const { project, take } = useSelector((state: RootState) => state.project);
   const appVersion = useSelector((state: RootState) => state.app.appVersion);
@@ -248,7 +250,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
 
   return (
     <ProjectFilesContext.Provider
-      value={{ saveTrackItemToDisk, deleteTrackItem, getTrackItemObjectURL, loadExistingFrameFiles }}
+      value={{ saveTrackItemToDisk, deleteTrackItem, getTrackItemObjectURL, loadExistingFrameFiles, fileManager, findFile }}
     >
       {children}
     </ProjectFilesContext.Provider>

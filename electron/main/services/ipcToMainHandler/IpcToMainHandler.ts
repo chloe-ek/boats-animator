@@ -4,7 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import IpcChannel from "../../../common/ipc/IpcChannel";
 import * as Ipc from "../../../common/ipc/IpcHandler";
-import { render } from "../exportVideo/ExportVideo";
+import { exportTakeWithConform, render } from "../exportVideo/ExportVideo";
 import { settingsFileStore } from "../fileStore/SettingsFileStore";
 import { openUserDataDirectory, showItemInFolder } from "../fileUtils/fileUtils";
 import logger, { ProcessName } from "../logger/Logger";
@@ -14,6 +14,75 @@ import {
   openDirDialog,
   openExportVideoFilePathDialog,
 } from "../windowUtils/windowUtils";
+import { conformTake } from "../exportVideo/TakeConformer";
+
+interface ConformTakePayload {
+  projectPath: string;          // absolute path to project root
+  takeId: string;               // "take01", etc
+  orderedFramePaths: string[];  // absolute paths, timeline order
+}
+
+interface ExportTakePayload {
+  projectPath: string;
+  takeId: string;
+  orderedFramePaths: string[];
+  fps: number;
+  outputPath: string;
+}
+
+ipcMain.handle(IpcChannel.CONFORM_TAKE, async (_event, payload: ConformTakePayload) => {
+  try {
+    const { projectPath, takeId, orderedFramePaths } = payload;
+    const result = await conformTake(projectPath, takeId, orderedFramePaths);
+    logger.info(`Conformed take ${takeId} at ${result.conformDir}`);
+    return { ok: true, result };
+  } catch (err: any) {
+    logger.error("CONFORM_TAKE failed", err);
+    return { ok: false, error: err?.message ?? String(err) };
+  }
+});
+
+ipcMain.handle(IpcChannel.EXPORT_TAKE, async (event, payload) => {
+  try {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) throw new Error("No BrowserWindow found for export");
+
+    const { tempDirectory, fps, outputPath } = payload;
+
+    // Build input pattern using the temp directory
+    const inputPattern = path.join(tempDirectory, "ba_001_01_frame_%05d.jpg");
+
+    // Build ffmpeg args (fps is used here)
+    const ffmpegArguments = `
+      -y
+      -framerate ${fps}
+      -start_number 1
+      -i "${inputPattern}"
+      -c:v libx264
+      -preset medium
+      -crf 18
+      -vf format=yuv420p
+      "${outputPath}"
+    `.trim();
+
+    // Split into args array
+    const rawArgs = ffmpegArguments.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+
+    // Clean quotes for spawn()
+    const args = rawArgs.map(a =>
+      a.replace(/^"(.*)"$/, "$1").replace(/\\"/g, '"')
+    );
+
+    logger.info("exportVideo.render.start", args.join(" "));
+
+    await render(win, args, outputPath);
+    return { ok: true };
+
+  } catch (err: any) {
+    logger.error("EXPORT_TAKE failed", err);
+    return { ok: false, error: err?.message ?? String(err) };
+  }
+});
 
 class IpcToMainHandler {
   appVersion = async (): Ipc.AppVersionResponse => app.getVersion();

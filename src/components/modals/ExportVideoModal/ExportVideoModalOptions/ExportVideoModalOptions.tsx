@@ -22,6 +22,8 @@ import Page from "../../../common/Page/Page";
 import PageBody from "../../../common/PageBody/PageBody";
 import Toolbar from "../../../common/Toolbar/Toolbar";
 import ToolbarItem, { ToolbarItemAlign } from "../../../common/ToolbarItem/ToolbarItem";
+import { ipcRenderer } from "electron";
+import IpcChannel from "../../../../../electron/common/ipc/IpcChannel";
 
 const fFmpegQualityPresets = {
   High: "veryslow",
@@ -53,51 +55,109 @@ const ExportVideoModalOptions = ({
     setCurrentFilePath(newFilePath ?? "");
   };
 
+  // const startExportVideo = async () => {
+  //   try {
+  //     // Get frame data from File System Access API
+  //     const frameData = [];
+  //     for (let i = 0; i < take.frameTrack.trackItems.length; i++) {
+  //       const trackItem = take.frameTrack.trackItems[i];
+  //       const objectURL = getTrackItemObjectURL(trackItem);
+        
+  //       if (!objectURL) {
+  //         throw new Error(`Object URL for track item "${trackItem.fileName}" is undefined.`);
+  //       }
+
+  //       // Fetch the blob data
+  //       const response = await fetch(objectURL);
+  //       const blob = await response.blob();
+  //       const arrayBuffer = await blob.arrayBuffer();
+        
+  //       frameData.push({
+  //         fileName: trackItem.fileName,
+  //         data: arrayBuffer
+  //       });
+  //     }
+      
+  //     // Copy frames to temp directory
+  //     const tempDirectory = await window.preload.ipcToMain.copyFramesToTempDirectory({
+  //       frameData,
+  //       tempDirectory: ""
+  //     });
+      
+  //     // Update ffmpeg arguments with temp directory path
+  //     const framePattern = window.preload.joinPath(
+  //       tempDirectory,
+  //       makeFrameFileName(take, 0).replace(/\d{5}\.jpg$/, "%05d.jpg")
+  //     );
+      
+  //     const updatedFFmpegArguments = ffmpegArguments.replace(
+  //       /-i "[^"]*"/,
+  //       `-i "${framePattern}"`
+  //     );
+      
+  //     onSubmit(updatedFFmpegArguments);
+  //   } catch (error) {
+  //     console.error("Error copying frames to temp directory:", error);
+  //     // Fallback to original behavior
+  //     onSubmit(ffmpegArguments);
+  //   }
+  // };
+
+  const { findFile } = useProjectFilesContext();
+
   const startExportVideo = async () => {
     try {
-      // Get frame data from File System Access API
       const frameData = [];
-      for (let i = 0; i < take.frameTrack.trackItems.length; i++) {
-        const trackItem = take.frameTrack.trackItems[i];
-        const objectURL = getTrackItemObjectURL(trackItem);
-        
-        if (!objectURL) {
-          throw new Error(`Object URL for track item "${trackItem.fileName}" is undefined.`);
-        }
 
-        // Fetch the blob data
-        const response = await fetch(objectURL);
-        const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        
+      for (const trackItem of take.frameTrack.trackItems) {
+        const info = findFile(trackItem.fileInfoId);
+        if (!info) continue;
+
+        const file = await info.fileHandle.getFile();
+        const arrayBuffer = await file.arrayBuffer();
+
         frameData.push({
           fileName: trackItem.fileName,
           data: arrayBuffer
         });
       }
-      
-      // Copy frames to temp directory
+
       const tempDirectory = await window.preload.ipcToMain.copyFramesToTempDirectory({
         frameData,
         tempDirectory: ""
       });
-      
-      // Update ffmpeg arguments with temp directory path
+
+      // 3. Build ffmpeg input pattern
       const framePattern = window.preload.joinPath(
         tempDirectory,
-        makeFrameFileName(take, 0).replace(/\d{5}\.jpg$/, "%05d.jpg")
+        "ba_001_01_frame_%05d.jpg"
       );
-      
+
+      // 4. Construct FFmpeg args
       const updatedFFmpegArguments = ffmpegArguments.replace(
         /-i "[^"]*"/,
         `-i "${framePattern}"`
       );
-      
-      onSubmit(updatedFFmpegArguments);
+
+      const outputPath = window.preload.normalizePath(
+        currentFilePath.endsWith(".mp4") ? currentFilePath : `${currentFilePath}.mp4`
+      );
+
+      // 5. Export via main
+      const result = await window.preload.ipcToMain.exportTake({
+        tempDirectory,
+        fps: take.frameRate,
+        outputPath,
+        ffmpegArguments: updatedFFmpegArguments
+      });
+
+      if (!result.ok) {
+        console.error("Export failed:", result.error);
+        alert("Export failed, but conformed frames are in:\n" + tempDirectory);
+      }
+
     } catch (error) {
-      console.error("Error copying frames to temp directory:", error);
-      // Fallback to original behavior
-      onSubmit(ffmpegArguments);
+      console.error("Unexpected export error:", error);
     }
   };
 
