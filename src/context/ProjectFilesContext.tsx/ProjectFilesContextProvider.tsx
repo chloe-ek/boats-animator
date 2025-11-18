@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useEffect } from "react";
 import useProjectDirectory from "../../hooks/useProjectDirectory";
 import { FileInfo, FileInfoType } from "../../services/fileManager/FileInfo";
 import {
+  makeFrameFileName,
   makeProjectInfoFileJson,
   makeTakeDirectoryName
 } from "../../services/project/projectBuilder";
@@ -161,6 +162,68 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
     return undefined;
   };
 
+  const conformTakeFrames = async (take: Take): Promise<TrackItem[]> => {
+    rLogger.info("projectFilesContext.conformTakeFrames", `Conforming frames for take ${take.shotNumber}_${take.takeNumber}`);
+
+    if (!projectDirectory) {
+      throw new Error("No project directory available for conforming take");
+    }
+
+    const takeDirectoryName = makeTakeDirectoryName(take);
+    const takeDirectoryHandle = await projectDirectory.handle.getDirectoryHandle(takeDirectoryName);
+
+    // Rename all files to temporary names to avoid collisions
+    rLogger.info("projectFilesContext.conformTakeFrames.phase1", "Renaming to temporary names");
+    const tempTrackItems: TrackItem[] = [];
+
+    for (let i = 0; i < take.frameTrack.trackItems.length; i++) {
+      const trackItem = take.frameTrack.trackItems[i];
+      const tempFileName = `temp_conform_${i.toString().padStart(5, '0')}.jpg`;
+
+      rLogger.info("projectFilesContext.conformTakeFrames.phase1.rename", `${trackItem.fileName} → ${tempFileName}`);
+
+      await fileManager.renameFile(
+        trackItem.fileInfoId,
+        tempFileName,
+        takeDirectoryHandle
+      );
+
+      tempTrackItems.push({
+        ...trackItem,
+        fileName: tempFileName,
+      });
+    }
+
+    // Rename from temporary names to final sequential names
+    rLogger.info("projectFilesContext.conformTakeFrames.phase2", "Renaming to final sequential names");
+    const updatedTrackItems: TrackItem[] = [];
+
+    for (let i = 0; i < tempTrackItems.length; i++) {
+      const trackItem = tempTrackItems[i];
+      const newFileNumber = i + 1; // Sequential numbering starting from 1
+      const newFileName = makeFrameFileName(take, newFileNumber);
+
+      rLogger.info("projectFilesContext.conformTakeFrames.phase2.rename", `${trackItem.fileName} → ${newFileName}`);
+
+      await fileManager.renameFile(
+        trackItem.fileInfoId,
+        newFileName,
+        takeDirectoryHandle
+      );
+
+      const updatedTrackItem: TrackItem = {
+        ...trackItem,
+        fileName: newFileName,
+        fileNumber: newFileNumber,
+      };
+
+      updatedTrackItems.push(updatedTrackItem);
+    }
+
+    rLogger.info("projectFilesContext.conformTakeFrames.completed", `Successfully conformed ${updatedTrackItems.length} frames`);
+    return updatedTrackItems;
+  };
+
   const updateProjectAndTakeLastSaved = (project: Project, take: Take): [Project, Take[]] => {
     const lastSaved = new Date().toISOString();
     const updatedProject: Project = { ...project, lastSaved };
@@ -248,7 +311,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
 
   return (
     <ProjectFilesContext.Provider
-      value={{ saveTrackItemToDisk, deleteTrackItem, getTrackItemObjectURL, loadExistingFrameFiles }}
+      value={{ saveTrackItemToDisk, deleteTrackItem, getTrackItemObjectURL, loadExistingFrameFiles, conformTakeFrames }}
     >
       {children}
     </ProjectFilesContext.Provider>

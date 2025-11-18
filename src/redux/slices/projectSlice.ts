@@ -61,6 +61,12 @@ const projectSlice = createSlice({
       }
       state.take?.frameTrack.trackItems.splice(index, 1);
     },
+
+    updateFrameTrackItems: (state, action: PayloadAction<TrackItem[]>) => {
+      if (state.take) {
+        state.take.frameTrack.trackItems = action.payload;
+      }
+    },
     // Add Redux actions for frame reordering and insertion
     reorderFrameTrackItems: (
       state,
@@ -129,6 +135,7 @@ export const {
   updateProject,
   addFrameTrackItem,
   removeFrameTrackItem,
+  updateFrameTrackItems,
   reorderFrameTrackItems,
   insertFrameTrackItemAt,
   setPlaybackSpeed,
