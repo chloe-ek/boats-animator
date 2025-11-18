@@ -101,7 +101,10 @@ const ExportVideoModalOptions = ({
       if (!result.ok) {
         console.error("Export failed:", result.error);
         alert("Export failed, but conformed frames are in:\n" + tempDirectory);
+        return;
       }
+
+      onSubmit(updatedFFmpegArguments);
 
     } catch (error) {
       console.error("Unexpected export error:", error);
