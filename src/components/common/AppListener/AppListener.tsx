@@ -35,6 +35,20 @@ const AppListeners = () => {
     );
   }, [userPreferences]);
 
+  // notification when export finishes
+  useEffect(() => {
+    return window.preload.ipcToRenderer.onExportTakeFinished(({ outputPath }) => {
+      rLogger.info("exportTake.finished", `Exported video to: ${outputPath}`);
+      import("@mantine/notifications").then(({ notifications }) => {
+        notifications.show({
+          title: "Export Complete",
+          message: `Saved to:\n${outputPath}`,
+          color: "green",
+        });
+      });
+    });
+  }, []);
+
   // Log when changing route
   useEffect(() => {
     rLogger.info("appListener.routeChange", location.pathname);

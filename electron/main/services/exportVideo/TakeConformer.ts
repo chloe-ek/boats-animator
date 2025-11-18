@@ -27,7 +27,7 @@ async function ensureDir(dir: string) {
 }
 
 /**
- * Optional SHA1 checksum of a file.
+ * SHA1 checksum of a file.
  */
 async function sha1OfFile(p: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -40,7 +40,7 @@ async function sha1OfFile(p: string): Promise<string> {
 }
 
 /**
- * Try to hardlink, fall back to copy on failure (e.g. cross-device).
+ * Try to hardlink, fall back to copy on failure.
  */
 async function linkOrCopy(src: string, dest: string) {
   try {
@@ -96,7 +96,6 @@ export async function conformTake(
     try {
       sha1 = await sha1OfFile(target);
     } catch {
-      // non-fatal – checksums are nice-to-have only
       sha1 = undefined;
     }
 
@@ -118,8 +117,6 @@ export async function conformTake(
 
   const tempMappingPath = path.join(takeRoot, "conform_temp.json");
   await fsp.writeFile(tempMappingPath, JSON.stringify(mappingJson, null, 2), "utf8");
-
-  // Atomically replace old conform folder & mapping
   await fsp.rm(conformDir, { recursive: true, force: true });
   await fsp.rename(conformTempDir, conformDir);
 

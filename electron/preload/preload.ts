@@ -59,6 +59,8 @@ export const api = {
       setListener(IpcChannel.ON_CLOSE_BUTTON_CLICK, callback),
     onExportVideoData: (callback: (payload: Ipc.OnExportVideoDataPayload) => void) =>
       setListener(IpcChannel.ON_EXPORT_VIDEO_DATA, callback),
+    onExportTakeFinished: (callback: (payload: { outputPath: string }) => void) =>
+      setListener(IpcChannel.EXPORT_TAKE_FINISHED, callback),
   },
   openExternal: {
     discord: () => shell.openExternal("http://discord.boatsanimator.com"),

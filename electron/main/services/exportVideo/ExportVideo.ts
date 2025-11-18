@@ -63,24 +63,13 @@ export interface ExportTakeWithConformOptions {
   outputPath: string;
 }
 
-/**
- * High-level export that:
- *  1) Builds a conformed, timeline-ordered folder under the project
- *  2) Runs ffmpeg against that folder to produce a video
- *
- * Even if ffmpeg fails, the conform folder + mapping will still exist.
- */
 export async function exportTakeWithConform(
   opts: ExportTakeWithConformOptions
 ): Promise<ConformResult> {
   const { projectPath, takeId, orderedFramePaths, fps, outputPath } = opts;
-
-  // 1) Build conform (this is what makes your frames usable even if export fails)
   const conformResult = await conformTake(projectPath, takeId, orderedFramePaths);
   const conformDir = conformResult.conformDir;
-
-  // 2) Use conform frames for ffmpeg export
-  const inputPattern = path.join(conformDir, "%06d.png"); // or jpg, depending on your capture
+  const inputPattern = path.join(conformDir, "%06d.png");
 
   logger.info(
     `ExportTakeWithConform: exporting take ${takeId} from ${inputPattern} to ${outputPath} @${fps}fps`
@@ -116,8 +105,6 @@ export async function exportTakeWithConform(
       }
     });
   });
-
-  // DO NOT delete conformResult.conformDir here – user may want to copy it.
 
   return conformResult;
 }
