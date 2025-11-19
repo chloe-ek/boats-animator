@@ -15,6 +15,11 @@ import {
   openExportVideoFilePathDialog,
 } from "../windowUtils/windowUtils";
 
+// Constants for frame numbering when copying to temp directory
+const FRAME_NUMBER_PADDING_DIGITS = 5;
+const FRAME_NUMBER_PADDING_CHAR = "0";
+const FRAME_NUMBER_START = 1; // Frame numbering starts at 1
+
 class IpcToMainHandler {
   appVersion = async (): Ipc.AppVersionResponse => app.getVersion();
 
@@ -98,7 +103,7 @@ class IpcToMainHandler {
     // Write frames with sequential numbering
     for (let i = 0; i < payload.frameData.length; i++) {
       const frame = payload.frameData[i];
-      const padded = String(i + 1).padStart(5, "0");
+      const padded = String(i + FRAME_NUMBER_START).padStart(FRAME_NUMBER_PADDING_DIGITS, FRAME_NUMBER_PADDING_CHAR);
       const fileName = `ba_001_01_frame_${padded}.jpg`;
       const filePath = path.join(tempDir, fileName);
       await fs.writeFile(filePath, Buffer.from(frame.data));

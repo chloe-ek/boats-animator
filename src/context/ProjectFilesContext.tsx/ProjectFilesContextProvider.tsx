@@ -16,6 +16,11 @@ import { Project, Take, TrackItem } from "../../services/project/types";
 import * as rLogger from "../../services/rLogger/rLogger";
 import { PROJECT_INFO_FILE_NAME } from "../../services/utils";
 
+// Constants for conform take operation
+const TEMP_CONFORM_PADDING_DIGITS = 5;
+const TEMP_CONFORM_PADDING_CHAR = '0';
+const FRAME_NUMBER_START = 1; // Frame numbering starts at 1
+
 interface ProjectFilesContextProviderProps {
   children: ReactNode;
 }
@@ -178,7 +183,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
 
     for (let i = 0; i < take.frameTrack.trackItems.length; i++) {
       const trackItem = take.frameTrack.trackItems[i];
-      const tempFileName = `temp_conform_${i.toString().padStart(5, '0')}.jpg`;
+      const tempFileName = `temp_conform_${i.toString().padStart(TEMP_CONFORM_PADDING_DIGITS, TEMP_CONFORM_PADDING_CHAR)}.jpg`;
 
       rLogger.info("projectFilesContext.conformTakeFrames.phase1.rename", `${trackItem.fileName} → ${tempFileName}`);
 
@@ -200,7 +205,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
 
     for (let i = 0; i < tempTrackItems.length; i++) {
       const trackItem = tempTrackItems[i];
-      const newFileNumber = i + 1; // Sequential numbering starting from 1
+      const newFileNumber = i + FRAME_NUMBER_START; // Sequential numbering starting from 1
       const newFileName = makeFrameFileName(take, newFileNumber);
 
       rLogger.info("projectFilesContext.conformTakeFrames.phase2.rename", `${trackItem.fileName} → ${newFileName}`);

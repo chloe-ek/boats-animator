@@ -25,6 +25,13 @@ import PageBody from "../../../common/PageBody/PageBody";
 import Toolbar from "../../../common/Toolbar/Toolbar";
 import ToolbarItem, { ToolbarItemAlign } from "../../../common/ToolbarItem/ToolbarItem";
 
+// Constants for frame numbering and FFmpeg configuration
+const FRAME_NUMBER_PADDING_DIGITS = 5;
+const FRAME_PATTERN_REFERENCE_INDEX = 0; // Used to get frame file name pattern
+const FFMPEG_FRAME_START_NUMBER = 1; // Conform take frames start at 1
+const FFMPEG_CRF_QUALITY = 17; // Default CRF quality
+const FFMPEG_ARGS_TEXTAREA_ROWS = 8;
+
 const fFmpegQualityPresets = {
   High: "veryslow",
   Medium: "medium",
@@ -63,8 +70,6 @@ const ExportVideoModalOptions = ({
       const updatedTrackItems = await conformTakeFrames(take);
       dispatch(updateFrameTrackItems(updatedTrackItems));
 
-      // Wait a bit for file system to sync
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Get frame data from File System Access API (now with sequential names)
       const frameData = [];
@@ -96,7 +101,7 @@ const ExportVideoModalOptions = ({
       // Update ffmpeg arguments with temp directory path
       const framePattern = window.preload.joinPath(
         tempDirectory,
-        makeFrameFileName(take, 0).replace(/\d{5}\.jpg$/, "%05d.jpg")
+        makeFrameFileName(take, FRAME_PATTERN_REFERENCE_INDEX).replace(/\d{5}\.jpg$/, `%0${FRAME_NUMBER_PADDING_DIGITS}d.jpg`)
       );
 
       const updatedFFmpegArguments = ffmpegArguments.replace(
@@ -123,22 +128,22 @@ const ExportVideoModalOptions = ({
 
     if (projectDirectory?.friendlyName) {
       // Create the frame pattern for FFmpeg sequence input
-      const frameFileName = makeFrameFileName(take, 0);
-      const framePattern = frameFileName.replace(/\d{5}\.jpg$/, "%05d.jpg");
+      const frameFileName = makeFrameFileName(take, FRAME_PATTERN_REFERENCE_INDEX);
+      const framePattern = frameFileName.replace(/\d{5}\.jpg$/, `%0${FRAME_NUMBER_PADDING_DIGITS}d.jpg`);
       const totalFrames = getTrackLength(take.frameTrack);
 
       setFFmpegArguments(
         [
           "-y", // Overwrite output file if it already exists
           `-framerate ${take.frameRate}`,
-          `-start_number 1`, // for conform take frame # start at 1
+          `-start_number ${FFMPEG_FRAME_START_NUMBER}`, // for conform take frame # start at 1
           "-f image2",
           "-c:v mjpeg", // force codec to mjpeg for input
           `-i "${framePattern}"`,
           `-frames:v ${totalFrames}`,
           "-c:v libx264",
           `-preset ${qualityPreset}`,
-          "-crf 17",
+          `-crf ${FFMPEG_CRF_QUALITY}`,
           "-vf format=yuv420p",
           `"${videoFilePath}"`,
           "-hide_banner", // Hide FFmpeg library info from output
@@ -192,7 +197,7 @@ const ExportVideoModalOptions = ({
                     id="exportVideoFFmpegArguments"
                     onChange={setFFmpegArguments}
                     value={ffmpegArguments}
-                    rows={8}
+                    rows={FFMPEG_ARGS_TEXTAREA_ROWS}
                   />
                 </InputGroup>
               </ContentBlock>
