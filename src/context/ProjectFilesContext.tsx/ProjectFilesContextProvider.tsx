@@ -35,7 +35,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
     skipReduxDispatch = false
   ): Promise<void> => {
     if (projectDirectory === undefined) {
-      throw "Missing projectDirectory";
+      throw new Error("Missing projectDirectory");
     }
 
     const takeDirectoryName = makeTakeDirectoryName(take);
@@ -234,7 +234,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
   const saveProjectInfoFileToDisk = async (project: Project, takes: Take[]): Promise<void> => {
     rLogger.info("projectFilesContext.saveProject", "Saving project info file to disk");
     if (projectDirectory === undefined) {
-      throw "Unable to save project file info as missing projectDirectory";
+      throw new Error("Unable to save project file info as missing projectDirectory");
     }
 
     const projectFileInfo = fileManager.findFile(project.fileInfoId);

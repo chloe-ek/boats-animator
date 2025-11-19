@@ -104,6 +104,9 @@ const ExportVideoModalOptions = ({
         `-i "${framePattern}"`
       );
 
+      // TEST : Force video export failure (conform take will still work)
+      // throw new Error("TEST: Simulated export failure");
+
       // Start export
       onSubmit(updatedFFmpegArguments);
     } catch (error) {
@@ -120,8 +123,6 @@ const ExportVideoModalOptions = ({
 
     if (projectDirectory?.friendlyName) {
       // Create the frame pattern for FFmpeg sequence input
-      // Note: This assumes frame files are in the current working directory
-      // TODO: Implement proper file copying to temporary directory for FFmpeg access
       const frameFileName = makeFrameFileName(take, 0);
       const framePattern = frameFileName.replace(/\d{5}\.jpg$/, "%05d.jpg");
       const totalFrames = getTrackLength(take.frameTrack);
