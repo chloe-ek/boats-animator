@@ -4,6 +4,7 @@ import { useFileManagerContext } from "../FileManagerContext/FileManagerContext"
 import {
   addProjectDirectoryEntry,
   putOrAddWorkingDirectoryEntry,
+  removeWorkingDirectoryEntry,
   PersistedDirectoryEntry,
 } from "../../services/database/PersistedDirectoryEntry";
 import useWorkingDirectory from "../../hooks/useWorkingDirectory";
@@ -51,6 +52,11 @@ export const PersistedDirectoriesContextProvider = ({
     }
   };
 
+  const removeWorkingDirectory = async (): Promise<void> => {
+    await removeWorkingDirectoryEntry();
+    rLogger.info("PersistedDirectoriesContext.removed", "Removed working directory from preferences");
+  };
+
   const addProjectDirectory = async (project: Project): Promise<PersistedDirectoryEntry> => {
     if (workingDirectory === undefined) {
       throw "addProjectDirectory: workingDirectory was not found";
@@ -77,7 +83,7 @@ export const PersistedDirectoriesContextProvider = ({
 
   return (
     <PersistedDirectoriesContext.Provider
-      value={{ checkWorkingDirectoryPermission, changeWorkingDirectory, addProjectDirectory }}
+      value={{ checkWorkingDirectoryPermission, changeWorkingDirectory, removeWorkingDirectory, addProjectDirectory }}
     >
       {children}
     </PersistedDirectoriesContext.Provider>

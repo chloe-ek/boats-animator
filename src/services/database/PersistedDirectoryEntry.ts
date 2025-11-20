@@ -35,6 +35,14 @@ export const putOrAddWorkingDirectoryEntry = async (handle: FileSystemDirectoryH
   return newEntry;
 };
 
+export const removeWorkingDirectoryEntry = async (): Promise<void> => {
+  const workingDirectory = await getWorkingDirectoryEntry();
+  if (workingDirectory) {
+    await db.persistedDirectories.delete(workingDirectory.id);
+    rLogger.info("removeWorkingDirectoryEntry.removed", `Removed working directory: ${workingDirectory.friendlyName}`);
+  }
+};
+
 export const addProjectDirectoryEntry = async (
   friendlyName: string,
   handle: FileSystemDirectoryHandle
