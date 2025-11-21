@@ -1,3 +1,5 @@
+import { FileInfoId } from "../Flavors";
+import * as rLogger from "../rLogger/rLogger";
 import {
   CreateDirectoryAlreadyExistsError,
   CreateDirectoryUnexpectedError,
@@ -9,8 +11,6 @@ import {
   UpdateFileUnexpectedError,
 } from "./FileErrors";
 import { FileInfo, FileInfoType } from "./FileInfo";
-import * as rLogger from "../rLogger/rLogger";
-import { FileInfoId } from "../Flavors";
 
 export class FileManager {
   private fileInfos: FileInfo[] = [];
@@ -112,6 +112,52 @@ export class FileManager {
       this.fileInfos = [...this.fileInfos.filter((fileInfo) => fileInfo.fileInfoId !== fileInfoId)];
     } catch (e) {
       throw new DeleteFileUnexpectedError(fileInfo.fileHandle.name, e);
+    }
+  };
+
+  renameFile = async (
+    fileInfoId: FileInfoId,
+    newFileName: string,
+    parentHandle: FileSystemDirectoryHandle
+  ): Promise<void> => {
+    const oldFileInfo = this.findFile(fileInfoId);
+    if (oldFileInfo === undefined) {
+      throw new Error(`File with fileInfoId ${fileInfoId} not found`);
+    }
+
+    try {
+      rLogger.info("fileManager.renameFile", `Renaming ${oldFileInfo.fileHandle.name} to ${newFileName}`);
+
+      // Read existing file data
+      const file = await oldFileInfo.fileHandle.getFile();
+      const data = await file.arrayBuffer();
+      const blob = new Blob([data], { type: file.type });
+
+      // Create new file with new name
+      const newFileHandle = await parentHandle.getFileHandle(newFileName, { create: true });
+      const newObjectURL = await this.writeFileAndCreateObjectURL(newFileHandle, blob);
+
+      // Delete old file
+      await (oldFileInfo.fileHandle as any).remove();
+      URL.revokeObjectURL(oldFileInfo.objectURL);
+
+      // Update FileInfo with new handle and objectURL
+      const updatedFileInfo = new FileInfo(
+        fileInfoId, // Keep same fileInfoId
+        oldFileInfo.fileType,
+        newFileHandle,
+        newObjectURL
+      );
+
+      this.fileInfos = [
+        ...this.fileInfos.filter((f) => f.fileInfoId !== fileInfoId),
+        updatedFileInfo,
+      ];
+
+      rLogger.info("fileManager.renameFile.success", `Successfully renamed to ${newFileName}`);
+    } catch (e) {
+      rLogger.error("fileManager.renameFile.error", `Error renaming file: ${e}`);
+      throw new Error(`Failed to rename file ${oldFileInfo.fileHandle.name}: ${e}`);
     }
   };
 

@@ -7,6 +7,7 @@ interface ProjectFilesContextProps {
   deleteTrackItem: (trackItem: TrackItem) => Promise<void>;
   getTrackItemObjectURL: (trackItem: TrackItem) => string | undefined;
   loadExistingFrameFiles: (take: Take) => Promise<void>;
+  conformTakeFrames: (take: Take) => Promise<TrackItem[]>;
 }
 
 export const ProjectFilesContext = createContext<ProjectFilesContextProps | undefined>(undefined);

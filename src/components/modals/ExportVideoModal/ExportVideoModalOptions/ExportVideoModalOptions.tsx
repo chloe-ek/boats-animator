@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
 import { useProjectFilesContext } from "../../../../context/ProjectFilesContext.tsx/ProjectFilesContext";
 import useProjectAndTake from "../../../../hooks/useProjectAndTake";
 import useProjectDirectory from "../../../../hooks/useProjectDirectory";
+import { updateFrameTrackItems } from "../../../../redux/slices/projectSlice";
 import { PageRoute } from "../../../../services/PageRoute";
 import { makeFrameFileName } from "../../../../services/project/projectBuilder";
 import { getTrackLength } from "../../../../services/project/projectCalculator";
@@ -23,6 +25,13 @@ import PageBody from "../../../common/PageBody/PageBody";
 import Toolbar from "../../../common/Toolbar/Toolbar";
 import ToolbarItem, { ToolbarItemAlign } from "../../../common/ToolbarItem/ToolbarItem";
 
+// Constants for frame numbering and FFmpeg configuration
+const FRAME_NUMBER_PADDING_DIGITS = 5;
+const FRAME_PATTERN_REFERENCE_INDEX = 0; // Used to get frame file name pattern
+const FFMPEG_FRAME_START_NUMBER = 1; // Conform take frames start at 1
+const FFMPEG_CRF_QUALITY = 17; // Default CRF quality
+const FFMPEG_ARGS_TEXTAREA_ROWS = 8;
+
 const fFmpegQualityPresets = {
   High: "veryslow",
   Medium: "medium",
@@ -40,7 +49,8 @@ const ExportVideoModalOptions = ({
 }: ExportVideoModalOptionsProps) => {
   const { project, take } = useProjectAndTake();
   const projectDirectory = useProjectDirectory();
-  const { getTrackItemObjectURL } = useProjectFilesContext();
+  const { getTrackItemObjectURL, conformTakeFrames } = useProjectFilesContext();
+  const dispatch = useDispatch();
 
   const [currentFilePath, setCurrentFilePath] = useState("");
   const [qualityPreset, setQualityPreset] = useState(fFmpegQualityPresets.Medium);
@@ -55,12 +65,18 @@ const ExportVideoModalOptions = ({
 
   const startExportVideo = async () => {
     try {
-      // Get frame data from File System Access API
+      // Conform Take FIRST (rename frames to be sequential)
+      // This ensures frames are always relabeled even if export fails
+      const updatedTrackItems = await conformTakeFrames(take);
+      dispatch(updateFrameTrackItems(updatedTrackItems));
+
+
+      // Get frame data from File System Access API (now with sequential names)
       const frameData = [];
-      for (let i = 0; i < take.frameTrack.trackItems.length; i++) {
-        const trackItem = take.frameTrack.trackItems[i];
+      for (let i = 0; i < updatedTrackItems.length; i++) {
+        const trackItem = updatedTrackItems[i];
         const objectURL = getTrackItemObjectURL(trackItem);
-        
+
         if (!objectURL) {
           throw new Error(`Object URL for track item "${trackItem.fileName}" is undefined.`);
         }
@@ -69,35 +85,35 @@ const ExportVideoModalOptions = ({
         const response = await fetch(objectURL);
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
-        
+
         frameData.push({
           fileName: trackItem.fileName,
           data: arrayBuffer
         });
       }
-      
+
       // Copy frames to temp directory
       const tempDirectory = await window.preload.ipcToMain.copyFramesToTempDirectory({
         frameData,
         tempDirectory: ""
       });
-      
+
       // Update ffmpeg arguments with temp directory path
       const framePattern = window.preload.joinPath(
         tempDirectory,
-        makeFrameFileName(take, 0).replace(/\d{5}\.jpg$/, "%05d.jpg")
+        makeFrameFileName(take, FRAME_PATTERN_REFERENCE_INDEX).replace(/\d{5}\.jpg$/, `%0${FRAME_NUMBER_PADDING_DIGITS}d.jpg`)
       );
-      
+
       const updatedFFmpegArguments = ffmpegArguments.replace(
         /-i "[^"]*"/,
         `-i "${framePattern}"`
       );
-      
+
+      // Start export
       onSubmit(updatedFFmpegArguments);
     } catch (error) {
-      console.error("Error copying frames to temp directory:", error);
-      // Fallback to original behavior
-      onSubmit(ffmpegArguments);
+      console.error("Error during conform/export:", error);
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -109,24 +125,22 @@ const ExportVideoModalOptions = ({
 
     if (projectDirectory?.friendlyName) {
       // Create the frame pattern for FFmpeg sequence input
-      // Note: This assumes frame files are in the current working directory
-      // TODO: Implement proper file copying to temporary directory for FFmpeg access
-      const frameFileName = makeFrameFileName(take, 0);
-      const framePattern = frameFileName.replace(/\d{5}\.jpg$/, "%05d.jpg");
+      const frameFileName = makeFrameFileName(take, FRAME_PATTERN_REFERENCE_INDEX);
+      const framePattern = frameFileName.replace(/\d{5}\.jpg$/, `%0${FRAME_NUMBER_PADDING_DIGITS}d.jpg`);
       const totalFrames = getTrackLength(take.frameTrack);
 
       setFFmpegArguments(
         [
           "-y", // Overwrite output file if it already exists
           `-framerate ${take.frameRate}`,
-          `-start_number 1`, // for conform take frame # start at 1
+          `-start_number ${FFMPEG_FRAME_START_NUMBER}`, // for conform take frame # start at 1
           "-f image2",
           "-c:v mjpeg", // force codec to mjpeg for input
           `-i "${framePattern}"`,
           `-frames:v ${totalFrames}`,
           "-c:v libx264",
           `-preset ${qualityPreset}`,
-          "-crf 17",
+          `-crf ${FFMPEG_CRF_QUALITY}`,
           "-vf format=yuv420p",
           `"${videoFilePath}"`,
           "-hide_banner", // Hide FFmpeg library info from output
@@ -180,7 +194,7 @@ const ExportVideoModalOptions = ({
                     id="exportVideoFFmpegArguments"
                     onChange={setFFmpegArguments}
                     value={ffmpegArguments}
-                    rows={8}
+                    rows={FFMPEG_ARGS_TEXTAREA_ROWS}
                   />
                 </InputGroup>
               </ContentBlock>
