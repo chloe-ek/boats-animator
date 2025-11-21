@@ -109,9 +109,6 @@ const ExportVideoModalOptions = ({
         `-i "${framePattern}"`
       );
 
-      // TEST : Force video export failure (conform take will still work)
-      // throw new Error("TEST: Simulated export failure");
-
       // Start export
       onSubmit(updatedFFmpegArguments);
     } catch (error) {
