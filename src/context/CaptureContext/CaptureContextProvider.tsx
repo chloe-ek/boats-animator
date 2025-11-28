@@ -25,7 +25,7 @@ const CaptureContextProvider = ({ children }: CaptureContextProviderProps) => {
   const { saveTrackItemToDisk } = useProjectFilesContext();
   const { captureImageRaw, deviceStatus } = useImagingDeviceContext();
   const dispatch = useDispatch();
-  const { insertModeIndex, cancelInsertMode } = usePlaybackContext();
+  const { insertModeIndex, cancelInsertMode, stopPlayback } = usePlaybackContext();
 
   const captureImage = async () => {
     rLogger.info("captureContextProvider.captureImage");
@@ -37,8 +37,11 @@ const CaptureContextProvider = ({ children }: CaptureContextProviderProps) => {
     // Check if we're in insert mode
     if (insertModeIndex !== undefined) {
       rLogger.info("captureImage.insertMode", `Capturing in insert mode at index ${insertModeIndex + 1}`);
-      await captureImageAtIndex(insertModeIndex + 1);
+      const insertIndex = insertModeIndex + 1;
+      await captureImageAtIndex(insertIndex);
       cancelInsertMode();
+      // Move to the inserted frame
+      stopPlayback(insertIndex);
       return;
     }
 

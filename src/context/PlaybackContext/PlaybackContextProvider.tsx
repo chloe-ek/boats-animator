@@ -126,7 +126,23 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
       return;
     }
 
-    stopPlayback();
+    // Calculate next index before deletion
+    const currentIndex = timelineIndex;
+    const totalFrames = take.frameTrack.trackItems.length;
+    let nextIndex: TimelineIndex | undefined;
+
+    if (currentIndex === undefined) {
+      // If in live view, stay in live view
+      nextIndex = undefined;
+    } else if (currentIndex >= totalFrames - 1) {
+      // If deleting the last frame, go to the new last frame
+      nextIndex = totalFrames - 2 >= 0 ? (totalFrames - 2) as TimelineIndex : undefined;
+    } else {
+      // Otherwise, stay at the same index (next frame will move to this position)
+      nextIndex = currentIndex;
+    }
+
+    stopPlayback(nextIndex);
     rLogger.info(
       "playback.deleteFrameAtCurrentTimelineIndex.deleted",
       `deleted track item ${trackItem.fileName}`
