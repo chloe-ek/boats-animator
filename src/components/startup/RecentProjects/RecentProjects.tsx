@@ -1,7 +1,8 @@
 import { Stack, Text, Group, ActionIcon, Tooltip, Button, TextInput, useMantineTheme } from "@mantine/core";
-import { useCallback, useState, useMemo, memo } from "react";
+import { useCallback, useState, useMemo, memo, useEffect, useRef } from "react";
 import { notifications } from "@mantine/notifications";
 import { useSelector, useDispatch } from "react-redux";
+import { useLocation } from "react-router-dom";
 import { db } from "../../../services/database/Database";
 import { useProjectOpener } from "../../../hooks/useProjectOpener";
 import IconName from "../../common/Icon/IconName";
@@ -16,10 +17,17 @@ import { PROJECT_INFO_FILE_NAME } from "../../../services/utils";
 import { makeProjectDirectoryName, validateProjectName } from "../../../services/project/projectBuilder";
 import useWorkingDirectory from "../../../hooks/useWorkingDirectory";
 import { useFileManagerContext } from "../../../context/FileManagerContext/FileManagerContext";
+import { MODAL_TRANSITION_DURATION, MODAL_CLICK_PROTECTION_BUFFER } from "../../ui/hooks/useDelayedClose";
 
 const MAX_DISPLAYED_PROJECTS = 5;
 const INVALID_NAME_AUTO_CLOSE = 3000;
 const WARNING_AUTO_CLOSE = 5000;
+const CLICK_PROTECTION_DURATION = MODAL_TRANSITION_DURATION + MODAL_CLICK_PROTECTION_BUFFER;
+
+// UI styling constants
+const ICON_MARGIN_RIGHT = "8px";
+const FONT_WEIGHT_MEDIUM = 500;
+const PROJECT_ROW_WIDTH_PERCENT = "60%";
 
 /**
  * Recursively copies all files and subdirectories from source to destination.
@@ -48,7 +56,7 @@ const copyDirectoryRecursive = async (
 const deleteDirectoryRecursive = async (
   dirHandle: FileSystemDirectoryHandle
 ): Promise<void> => {
-  for await (const [name, handle] of dirHandle.entries()) {
+  for await (const [_, handle] of dirHandle.entries()) {
     if (handle.kind === "file") {
       await (handle as any).remove();
     } else if (handle.kind === "directory") {
@@ -97,11 +105,8 @@ const renameProjectDirectory = async (
     await workingDirectoryHandle.getDirectoryHandle(newDirectoryName);
     throw new Error(`A directory with the name "${newDirectoryName}" already exists`);
   } catch (e) {
-    if (e instanceof DOMException && e.name === "NotFoundError") {
-      // Good, the directory doesn't exist yet
-    } else if (e instanceof Error && e.message.includes("already exists")) {
-      throw e;
-    } else {
+    // NotFoundError is expected - the directory doesn't exist yet, which is good
+    if (!(e instanceof DOMException && e.name === "NotFoundError")) {
       throw e;
     }
   }
@@ -142,7 +147,18 @@ const updateProjectInfoFile = async (
     throw new Error("Permission denied for project directory");
   }
 
-  const projectInfoFileHandle = await projectEntry.handle.getFileHandle(PROJECT_INFO_FILE_NAME);
+  // Validate that the directory handle is still valid before accessing files
+  // This is especially important after a rename operation
+  let projectInfoFileHandle: FileSystemFileHandle;
+  try {
+    projectInfoFileHandle = await projectEntry.handle.getFileHandle(PROJECT_INFO_FILE_NAME);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "NotFoundError") {
+      throw new Error(`Project directory not found. The directory may have been moved or deleted.`);
+    }
+    throw e;
+  }
+
   const projectInfoFile = await projectInfoFileHandle.getFile();
   const projectInfoText = await projectInfoFile.text();
   const projectInfo: ProjectInfoFileV1 = JSON.parse(projectInfoText);
@@ -171,7 +187,7 @@ const EditingProjectRow = memo(({ editedName, onNameChange, onSave, onCancel }: 
   const theme = useMantineTheme();
   return (
     <>
-      <div style={{ marginRight: "8px", flexShrink: 0, display: "flex", alignItems: "center", color: theme.colors.blue[6] }}>
+      <div style={{ marginRight: ICON_MARGIN_RIGHT, flexShrink: 0, display: "flex", alignItems: "center", color: theme.colors.blue[6] }}>
         <Icon name={IconName.FOLDER} />
       </div>
       <TextInput
@@ -222,7 +238,7 @@ const ProjectRow = memo(({ project, onOpen, onEdit, onRemove }: ProjectRowProps)
       style={{ justifyContent: "flex-start", flex: 1 }}
       leftSection={<Icon name={IconName.FOLDER} />}
     >
-      <Text truncate size="md" fw={500}>
+      <Text truncate size="md" fw={FONT_WEIGHT_MEDIUM}>
         {project.friendlyName}
       </Text>
     </Button>
@@ -250,6 +266,24 @@ export const RecentProjects = () => {
   const dispatch = useDispatch();
   const workingDirectory = useWorkingDirectory();
   const fileManager = useFileManagerContext();
+  const location = useLocation();
+  const previousLocationRef = useRef<string>(location.pathname);
+  const [clickProtectionEnabled, setClickProtectionEnabled] = useState(false);
+
+  // Enable click protection after navigation to prevent accidental clicks from modal close
+  useEffect(() => {
+    const locationChanged = previousLocationRef.current !== location.pathname;
+    previousLocationRef.current = location.pathname;
+
+    if (locationChanged && location.pathname === "/startup") {
+      setClickProtectionEnabled(true);
+      const timer = setTimeout(() => {
+        setClickProtectionEnabled(false);
+      }, CLICK_PROTECTION_DURATION);
+
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname]);
 
   // Combine selectors to reduce re-renders
   const { projectDirectoryId, project } = useSelector((state: RootState) => ({
@@ -410,6 +444,11 @@ export const RecentProjects = () => {
    * Handles opening a recent project using the shared project opener hook.
    */
   const handleOpenRecentProject = useCallback(async (projectEntry: PersistedDirectoryEntry) => {
+    // Prevent opening projects if click protection is enabled (e.g., right after modal close)
+    if (clickProtectionEnabled) {
+      return;
+    }
+
     try {
       await openProject(projectEntry.handle, projectEntry.friendlyName);
     } catch (error) {
@@ -424,7 +463,7 @@ export const RecentProjects = () => {
 
       await handleRemoveRecentProject(projectEntry.id);
     }
-  }, [openProject, handleRemoveRecentProject]);
+  }, [openProject, handleRemoveRecentProject, clickProtectionEnabled]);
 
   // Early return for empty state
   if (!recentProjects.length) {
@@ -444,7 +483,7 @@ export const RecentProjects = () => {
         const isEditing = editingProjectId === project.id;
 
         return (
-          <Group key={project.id} justify="center" wrap="nowrap" style={{ width: "60%", margin: "0 auto" }}>
+          <Group key={project.id} justify="center" wrap="nowrap" style={{ width: PROJECT_ROW_WIDTH_PERCENT, margin: "0 auto" }}>
             {isEditing ? (
               <EditingProjectRow
                 editedName={editedName}

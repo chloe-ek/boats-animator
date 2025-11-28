@@ -80,7 +80,22 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
 
     try {
       const takeDirectoryName = makeTakeDirectoryName(take);
-      const takeDirectoryHandle = await projectDirectory.handle.getDirectoryHandle(takeDirectoryName);
+      
+      // Validate that the project directory handle is still valid
+      // This is especially important after a rename operation where the old directory may have been deleted
+      let takeDirectoryHandle: FileSystemDirectoryHandle;
+      try {
+        takeDirectoryHandle = await projectDirectory.handle.getDirectoryHandle(takeDirectoryName);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "NotFoundError") {
+          rLogger.warn(
+            "loadExistingFrameFiles.directoryNotFound",
+            `Take directory "${takeDirectoryName}" not found in project directory. The project may have been moved or renamed.`
+          );
+          return; // Gracefully return instead of crashing
+        }
+        throw e; // Re-throw other errors
+      }
       
       // Get all JPG files in the take directory
       const frameFiles: FileSystemFileHandle[] = [];
@@ -151,7 +166,15 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
 
       rLogger.info("loadExistingFrameFiles.completed", `Successfully loaded ${loadedFiles.length} frame files: ${loadedFiles.join(', ')}`);
     } catch (e) {
-      rLogger.error("loadExistingFrameFiles.directoryError", `Error accessing take directory: ${e}`);
+      // Log the error but don't crash - the project might have been moved/renamed
+      if (e instanceof DOMException && e.name === "NotFoundError") {
+        rLogger.warn(
+          "loadExistingFrameFiles.directoryError",
+          `Project directory not found. The project may have been moved, renamed, or deleted. Error: ${e}`
+        );
+      } else {
+        rLogger.error("loadExistingFrameFiles.directoryError", `Error accessing take directory: ${e}`);
+      }
     }
   }, [projectDirectory, fileManager]);
 
@@ -242,6 +265,18 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
       throw new Error("Unable to save project file info as missing projectDirectory");
     }
 
+    // Validate that the project directory handle is still valid
+    // This is especially important after a rename operation where the old directory may have been deleted
+    try {
+      await projectDirectory.handle.requestPermission({ mode: "readwrite" });
+    } catch (e) {
+      rLogger.warn(
+        "projectFilesContext.saveProject.permissionError",
+        `Permission error when trying to save project file. The project may have been moved or renamed. Error: ${e}`
+      );
+      return; // Gracefully return instead of crashing
+    }
+
     const projectFileInfo = fileManager.findFile(project.fileInfoId);
 
     const projectFileJson = await makeProjectInfoFileJson(appVersion, project, takes);
@@ -253,39 +288,71 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
         "projectFilesContext.saveProject.update",
         `Updating project info file ${projectFileInfo.fileInfoId}`
       );
-      await fileManager.updateFile(projectFileInfo.fileInfoId, data);
+      try {
+        await fileManager.updateFile(projectFileInfo.fileInfoId, data);
+      } catch (e) {
+        rLogger.error(
+          "projectFilesContext.saveProject.updateError",
+          `Failed to update project info file: ${e}. The project may have been moved or renamed.`
+        );
+        // Don't throw - allow the app to continue
+        return;
+      }
     } else {
       try {
-        const existingFileHandle = await projectDirectory.handle.getFileHandle(PROJECT_INFO_FILE_NAME);
-        rLogger.info(
-          "projectFilesContext.saveProject.updateExisting",
-          `Updating existing project info file in ${projectDirectory.handle.name}`
+        // Validate that the directory handle is still valid before accessing files
+        let existingFileHandle: FileSystemFileHandle | undefined;
+        try {
+          existingFileHandle = await projectDirectory.handle.getFileHandle(PROJECT_INFO_FILE_NAME);
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "NotFoundError") {
+            rLogger.warn(
+              "projectFilesContext.saveProject.fileNotFound",
+              `Project info file not found. The project may have been moved or renamed. Creating new file.`
+            );
+            existingFileHandle = undefined; // Will fall through to create new file
+          } else {
+            throw e;
+          }
+        }
+        
+        if (existingFileHandle) {
+          rLogger.info(
+            "projectFilesContext.saveProject.updateExisting",
+            `Updating existing project info file in ${projectDirectory.handle.name}`
+          );
+          
+          const writable = await existingFileHandle.createWritable();
+          await writable.write(data);
+          await writable.close();
+          
+          // Create a FileInfo entry for the existing file
+          const objectURL = URL.createObjectURL(data);
+          const newFileInfo = new FileInfo(project.fileInfoId, FileInfoType.PROJECT_INFO, existingFileHandle, objectURL);
+          
+          // Add to file manager's fileInfos array
+          // We need to access the private fileInfos array to add the new file info
+          (fileManager as any).fileInfos = [...(fileManager as any).fileInfos, newFileInfo];
+        } else {
+          // File doesn't exist, create it
+          rLogger.info(
+            "projectFilesContext.saveProject.create",
+            `Creating new project info file in ${projectDirectory.handle.name}`
+          );
+          await fileManager.createFile(
+            project.fileInfoId,
+            PROJECT_INFO_FILE_NAME,
+            projectDirectory.handle,
+            FileInfoType.PROJECT_INFO,
+            data
+          );
+        }
+      } catch (e) {
+        rLogger.error(
+          "projectFilesContext.saveProject.error",
+          `Error saving project info file: ${e}. The project may have been moved or renamed.`
         );
-        
-        const writable = await existingFileHandle.createWritable();
-        await writable.write(data);
-        await writable.close();
-        
-        // Create a FileInfo entry for the existing file
-        const objectURL = URL.createObjectURL(data);
-        const newFileInfo = new FileInfo(project.fileInfoId, FileInfoType.PROJECT_INFO, existingFileHandle, objectURL);
-        
-        // Add to file manager's fileInfos array
-        // We need to access the private fileInfos array to add the new file info
-        (fileManager as any).fileInfos = [...(fileManager as any).fileInfos, newFileInfo];
-        
-      } catch {
-        rLogger.info(
-          "projectFilesContext.saveProject.create",
-          `Creating new project info file in ${projectDirectory.handle.name}`
-        );
-        await fileManager.createFile(
-          project.fileInfoId,
-          PROJECT_INFO_FILE_NAME,
-          projectDirectory.handle,
-          FileInfoType.PROJECT_INFO,
-          data
-        );
+        // Don't throw - allow the app to continue
       }
     }
   };
@@ -309,7 +376,13 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
   useEffect(() => {
     if (projectDirectory !== undefined && project !== undefined && take !== undefined) {
       const [updatedProject, updatedTakes] = updateProjectAndTakeLastSaved(project, take);
-      saveProjectInfoFileToDisk!(updatedProject, updatedTakes);
+      // Wrap in try-catch to prevent crashes if save fails (e.g., after rename)
+      saveProjectInfoFileToDisk(updatedProject, updatedTakes).catch((error) => {
+        rLogger.error(
+          "projectFilesContext.saveEffect.error",
+          `Failed to save project info file in effect: ${error}`
+        );
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project, take, projectDirectory]);

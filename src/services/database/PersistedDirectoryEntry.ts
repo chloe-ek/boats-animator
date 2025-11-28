@@ -16,9 +16,10 @@ export interface PersistedDirectoryEntry {
 }
 
 const getWorkingDirectoryEntry = async () =>
-  db.persistedDirectories.get({
-    type: PersistedDirectoryType.WORKING_DIRECTORY,
-  });
+  db.persistedDirectories
+    .where('type')
+    .equals(PersistedDirectoryType.WORKING_DIRECTORY)
+    .first();
 
 export const putOrAddWorkingDirectoryEntry = async (handle: FileSystemDirectoryHandle) => {
   const workingDirectory = await getWorkingDirectoryEntry();
@@ -32,6 +33,14 @@ export const putOrAddWorkingDirectoryEntry = async (handle: FileSystemDirectoryH
   await db.persistedDirectories.put(newEntry);
 
   return newEntry;
+};
+
+export const removeWorkingDirectoryEntry = async (): Promise<void> => {
+  const workingDirectory = await getWorkingDirectoryEntry();
+  if (workingDirectory) {
+    await db.persistedDirectories.delete(workingDirectory.id);
+    rLogger.info("removeWorkingDirectoryEntry.removed", `Removed working directory: ${workingDirectory.friendlyName}`);
+  }
 };
 
 export const addProjectDirectoryEntry = async (
