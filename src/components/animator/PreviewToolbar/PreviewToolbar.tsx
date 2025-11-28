@@ -14,6 +14,8 @@ export const PreviewToolbar = () => {
     liveViewVisible,
     displayFrame,
     deleteFrameAtCurrentTimelineIndex,
+    deleteSelectedFrames,
+    selectedFrameIndices,
     insertModeIndex
   } = usePlaybackContext();
 
@@ -37,7 +39,14 @@ export const PreviewToolbar = () => {
     nextFrame: () => displayFrame(PlaybackFrameName.NEXT),
     firstFrame: () => displayFrame(PlaybackFrameName.FIRST),
     lastFrame: () => displayFrame(PlaybackFrameName.LAST),
-    deleteFrame: () => deleteFrameAtCurrentTimelineIndex(),
+    deleteFrame: () => {
+      // If multiple frames are selected, delete them all; otherwise delete current frame
+      if (selectedFrameIndices.size > 0) {
+        deleteSelectedFrames();
+      } else {
+        deleteFrameAtCurrentTimelineIndex();
+      }
+    },
   });
 
   return (

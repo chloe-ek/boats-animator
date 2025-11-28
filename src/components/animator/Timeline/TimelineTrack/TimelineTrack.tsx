@@ -47,7 +47,7 @@ const TimelineTrack = ({
   const navigate = useNavigate();
   const highlightedTrackItem = getHighlightedTrackItem(track, timelineIndex);
   const { getTrackItemObjectURL } = useProjectFilesContext();
-  const { stopPlayback } = usePlaybackContext();
+  const { stopPlayback, toggleFrameSelection, selectedFrameIndices } = usePlaybackContext();
   const dispatch = useDispatch();
 
   const sensors = useSensors(
@@ -87,14 +87,21 @@ const TimelineTrack = ({
           >
             {track.trackItems.map((trackItem, i) => {
               const frameIndex = getTrackItemStartPosition(track, i);
+              const isSelected = selectedFrameIndices.has(frameIndex);
               return (
                 <TimelineTrackItem
                   title={getTrackItemTitle(track, i)}
                   dataUrl={getTrackItemObjectURL(trackItem)}
                   highlighted={highlightedTrackItem?.id === trackItem.id}
+                  selected={isSelected}
                   key={trackItem.id}
                   trackItemId={trackItem.id}
-                  onClick={() => onClickItem(i)}
+                  onClick={(multiSelect) => {
+                    toggleFrameSelection(frameIndex, multiSelect);
+                    if (!multiSelect) {
+                      onClickItem(i);
+                    }
+                  }}
                   onDelete={() => handleDeleteFrame(i)}
                   frameIndex={frameIndex}
                 />

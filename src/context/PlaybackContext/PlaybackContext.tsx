@@ -13,11 +13,15 @@ export interface PlaybackContextProps {
   stopPlayback: (i?: TimelineIndex | undefined, pause?: boolean) => void;
   displayFrame: (name: PlaybackFrameName) => void;
   deleteFrameAtCurrentTimelineIndex: () => Promise<void>;
+  deleteSelectedFrames: () => Promise<void>;
   playFromHere: (frameIndex: TimelineIndex) => void;
   startInsertMode: (afterIndex: TimelineIndex) => void;
   cancelInsertMode: () => void;
+  toggleFrameSelection: (frameIndex: TimelineIndex, multiSelect: boolean) => void;
+  clearSelection: () => void;
   timelineIndex: TimelineIndex | undefined;
   insertModeIndex: TimelineIndex | undefined;
+  selectedFrameIndices: Set<TimelineIndex>;
   liveViewVisible: boolean;
   playing: boolean;
 }

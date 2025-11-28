@@ -8,24 +8,45 @@ import { PageRoute } from "../../../services/PageRoute";
 
 export const DeleteFrameModal = () => {
   const navigate = useNavigate();
-  const { deleteFrameAtCurrentTimelineIndex, timelineIndex } = usePlaybackContext();
+  const {
+    deleteFrameAtCurrentTimelineIndex,
+    deleteSelectedFrames,
+    timelineIndex,
+    selectedFrameIndices
+  } = usePlaybackContext();
+
+  const hasMultipleSelected = selectedFrameIndices.size > 0;
+  const frameCount = hasMultipleSelected ? selectedFrameIndices.size : 1;
+  const isPlural = frameCount > 1;
+
+  const getDeleteMessage = () => {
+    if (hasMultipleSelected) {
+      return `This will permanently delete ${frameCount} selected frames.`;
+    }
+    return `This will permanently delete ${
+      timelineIndex === undefined ? "the last frame captured" : `frame ${timelineIndex + 1}`
+    }.`;
+  };
+
+  const handleDelete = async () => {
+    if (hasMultipleSelected) {
+      await deleteSelectedFrames?.();
+    } else {
+      await deleteFrameAtCurrentTimelineIndex?.();
+    }
+    navigate(PageRoute.ANIMATOR);
+  };
 
   return (
-    <UiModal title="Delete frame?" onClose={PageRoute.ANIMATOR}>
-      <p>
-        This will permanently delete{" "}
-        {timelineIndex === undefined ? "the last frame captured" : `frame ${timelineIndex + 1}`}.
-      </p>
+    <UiModal title={`Delete frame${isPlural ? 's' : ''}?`} onClose={PageRoute.ANIMATOR}>
+      <p>{getDeleteMessage()}</p>
       <UiModalFooter>
         <UiButton onClick={PageRoute.ANIMATOR}>Cancel</UiButton>
         <UiButton
-          onClick={async () => {
-            await deleteFrameAtCurrentTimelineIndex?.();
-            navigate(PageRoute.ANIMATOR);
-          }}
+          onClick={handleDelete}
           semanticColor={SemanticColor.DANGER}
         >
-          Delete frame
+          Delete frame{isPlural ? 's' : ''}
         </UiButton>
       </UiModalFooter>
     </UiModal>

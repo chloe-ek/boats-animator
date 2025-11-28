@@ -11,8 +11,9 @@ interface TimelineTrackItemProps {
   title: string;
   dataUrl: string | undefined;
   highlighted: boolean;
+  selected: boolean;
   trackItemId: string;
-  onClick: () => void;
+  onClick: (multiSelect: boolean) => void;
   onDelete?: () => void;
   frameIndex: TimelineIndex;
 }
@@ -21,13 +22,14 @@ const TimelineTrackItem = ({
   title,
   dataUrl,
   highlighted,
+  selected,
   trackItemId,
   onClick,
   onDelete,
   frameIndex,
 }: TimelineTrackItemProps) => {
   const [menu, setMenu] = useState({ show: false, x: 0, y: 0 });
-  const { playFromHere, startInsertMode } = usePlaybackContext();
+  const { playFromHere, startInsertMode, selectedFrameIndices, clearSelection } = usePlaybackContext();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: trackItemId,
   });
@@ -48,17 +50,31 @@ const TimelineTrackItem = ({
     [highlighted]
   );
 
-  const handleClick = (_e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     // Only call onClick if we're not currently dragging
     if (!isDragging) {
-      onClick();
+      // Check for Ctrl (Windows/Linux) or Cmd (Mac) key for multi-selection
+      const multiSelect = e.ctrlKey || e.metaKey;
+      onClick(multiSelect);
     }
   };
 
   const onRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    onClick();
+    const multiSelect = e.ctrlKey || e.metaKey;
+    onClick(multiSelect);
     setMenu({ show: true, x: e.clientX, y: e.clientY });
+  };
+
+  const handleInsertAfterHere = () => {
+    // If multiple frames are selected, insert after the highest selected frame
+    if (selectedFrameIndices.size > 0) {
+      const maxSelectedIndex = Math.max(...Array.from(selectedFrameIndices));
+      startInsertMode(maxSelectedIndex as TimelineIndex);
+      clearSelection();
+    } else {
+      startInsertMode(frameIndex);
+    }
   };
 
   return (
@@ -78,7 +94,7 @@ const TimelineTrackItem = ({
         {dataUrl !== undefined && (
           <img
             className={classNames("timeline-track-item__img", {
-              "timeline-track-item__img--highlighted": highlighted,
+              "timeline-track-item__img--highlighted": highlighted || selected,
             })}
             src={dataUrl}
           />
@@ -97,7 +113,7 @@ const TimelineTrackItem = ({
         position={{ x: menu.x, y: menu.y }}
         items={[
           { label: "Play from here", onClick: () => playFromHere(frameIndex), disabled: false },
-          { label: "Insert after here", onClick: () => startInsertMode(frameIndex), disabled: false },
+          { label: "Insert after here", onClick: handleInsertAfterHere, disabled: false },
           { label: "Delete", onClick: onDelete || (() => {}), disabled: !onDelete },
           { label: "More...", onClick: () => {}, disabled: false }
         ]}

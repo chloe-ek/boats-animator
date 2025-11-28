@@ -37,6 +37,8 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
   const [playing, playingRef, setPlaying] = useLinkedRefAndState(false);
   // When in insert mode, the next capture will insert a frame after this index
   const [insertModeIndex, setInsertModeIndex] = useState<TimelineIndex | undefined>(undefined);
+  // Track multiple selected frames for multi-frame operations
+  const [selectedFrameIndices, setSelectedFrameIndices] = useState<Set<TimelineIndex>>(new Set());
 
   const delay = take ? 1000 / take.frameRate / playbackSpeed : 1000;
   const previousTime = useRef<number>(0);
@@ -172,6 +174,87 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
     setInsertModeIndex(undefined);
   };
 
+  const toggleFrameSelection = (frameIndex: TimelineIndex, multiSelect: boolean) => {
+    if (!multiSelect) {
+      // Single selection mode - clear others and select only this frame
+      setSelectedFrameIndices(new Set([frameIndex]));
+    } else {
+      // Multi-selection mode - toggle this frame in the selection
+      setSelectedFrameIndices((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(frameIndex)) {
+          newSet.delete(frameIndex);
+        } else {
+          newSet.add(frameIndex);
+        }
+        return newSet;
+      });
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedFrameIndices(new Set());
+  };
+
+  const deleteSelectedFrames = async () => {
+    if (!take || selectedFrameIndices.size === 0) {
+      rLogger.info(
+        "playback.deleteSelectedFrames.noAction",
+        "nothing was deleted as no frames are selected"
+      );
+      return;
+    }
+
+    // Sort indices in descending order to delete from end to start
+    // This prevents index shifting issues during deletion
+    const sortedIndices = Array.from(selectedFrameIndices).sort((a, b) => b - a);
+
+    // Get the track items to delete
+    const itemsToDelete = sortedIndices
+      .map((index) => take.frameTrack.trackItems[index])
+      .filter((item) => item !== undefined);
+
+    if (itemsToDelete.length === 0) {
+      rLogger.info(
+        "playback.deleteSelectedFrames.noAction",
+        "nothing was deleted as no track items found"
+      );
+      return;
+    }
+
+    // Calculate next index after deletion
+    const totalFrames = take.frameTrack.trackItems.length;
+    const minDeletedIndex = Math.min(...sortedIndices);
+    let nextIndex: TimelineIndex | undefined;
+
+    if (totalFrames - itemsToDelete.length === 0) {
+      // All frames deleted, go to live view
+      nextIndex = undefined;
+    } else if (minDeletedIndex >= totalFrames - itemsToDelete.length) {
+      // Deleted frames at the end, go to new last frame
+      nextIndex = (totalFrames - itemsToDelete.length - 1) as TimelineIndex;
+    } else {
+      // Stay at the position where the first deleted frame was
+      nextIndex = minDeletedIndex as TimelineIndex;
+    }
+
+    stopPlayback(nextIndex);
+
+    // Delete all items
+    for (const trackItem of itemsToDelete) {
+      rLogger.info(
+        "playback.deleteSelectedFrames.deleted",
+        `deleted track item ${trackItem.fileName}`
+      );
+      await deleteTrackItem(trackItem);
+    }
+
+    clearSelection();
+    notifications.show({
+      message: `Deleted ${itemsToDelete.length} frame${itemsToDelete.length > 1 ? 's' : ''}`
+    });
+  };
+
   const _startPlayback = () => {
     _logPlayback("playback.startPlayback");
     if (playForDuration > 0) {
@@ -247,11 +330,15 @@ const PlaybackContextProvider = ({ children }: PlaybackContextProviderProps) => 
     stopPlayback,
     displayFrame,
     deleteFrameAtCurrentTimelineIndex,
+    deleteSelectedFrames,
     playFromHere,
     startInsertMode,
     cancelInsertMode,
+    toggleFrameSelection,
+    clearSelection,
     timelineIndex,
     insertModeIndex,
+    selectedFrameIndices,
     liveViewVisible: timelineIndex === undefined,
     playing,
   };
