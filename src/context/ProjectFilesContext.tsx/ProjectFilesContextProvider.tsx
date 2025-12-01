@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useEffect } from "react";
 import useProjectDirectory from "../../hooks/useProjectDirectory";
 import { FileInfo, FileInfoType } from "../../services/fileManager/FileInfo";
 import {
+  makeFrameFileName,
   makeProjectInfoFileJson,
   makeTakeDirectoryName
 } from "../../services/project/projectBuilder";
@@ -14,6 +15,11 @@ import { RootState } from "../../redux/store";
 import { Project, Take, TrackItem } from "../../services/project/types";
 import * as rLogger from "../../services/rLogger/rLogger";
 import { PROJECT_INFO_FILE_NAME } from "../../services/utils";
+
+// Constants for conform take operation
+const TEMP_CONFORM_PADDING_DIGITS = 5;
+const TEMP_CONFORM_PADDING_CHAR = '0';
+const FRAME_NUMBER_START = 1; // Frame numbering starts at 1
 
 interface ProjectFilesContextProviderProps {
   children: ReactNode;
@@ -74,7 +80,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
 
     try {
       const takeDirectoryName = makeTakeDirectoryName(take);
-      
+
       // Validate that the project directory handle is still valid
       // This is especially important after a rename operation where the old directory may have been deleted
       let takeDirectoryHandle: FileSystemDirectoryHandle;
@@ -90,7 +96,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
         }
         throw e; // Re-throw other errors
       }
-      
+
       // Get all JPG files in the take directory
       const frameFiles: FileSystemFileHandle[] = [];
       for await (const [name, handle] of takeDirectoryHandle.entries()) {
@@ -114,15 +120,15 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
       const BATCH_SIZE = 5;
       const loadedFiles: string[] = [];
       const newFileInfos: FileInfo[] = [];
-      
+
       for (let i = 0; i < frameFiles.length; i += BATCH_SIZE) {
         const batch = frameFiles.slice(i, i + BATCH_SIZE);
-        
+
         const batchPromises = batch.map(async (fileHandle) => {
           try {
             const file = await fileHandle.getFile();
             const objectURL = URL.createObjectURL(file);
-            
+
             const matchingTrackItem = trackItemMap.get(fileHandle.name);
 
             if (matchingTrackItem) {
@@ -132,7 +138,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
                 fileHandle,
                 objectURL
               );
-              
+
               loadedFiles.push(fileHandle.name);
               rLogger.info("loadExistingFrameFiles.loaded", `Loaded frame file: ${fileHandle.name} for trackItem ${matchingTrackItem.id}`);
               return fileInfo;
@@ -147,15 +153,29 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
             return null;
           }
         });
-        
+
         // Wait for batch to complete and collect results
         const batchResults = await Promise.all(batchPromises);
         newFileInfos.push(...batchResults.filter((info): info is FileInfo => info !== null));
       }
 
       // Batch update file manager's fileInfos array (single operation instead of multiple spreads)
+      // Replace existing file infos with same fileInfoId to avoid duplicates
       if (newFileInfos.length > 0) {
-        (fileManager as any).fileInfos = [...(fileManager as any).fileInfos, ...newFileInfos];
+        const existingFileInfos = (fileManager as any).fileInfos as FileInfo[];
+        const newFileInfoIds = new Set(newFileInfos.map(fi => fi.fileInfoId));
+
+        // Remove old file infos that are being reloaded, and revoke their object URLs
+        const filteredFileInfos = existingFileInfos.filter(fileInfo => {
+          if (newFileInfoIds.has(fileInfo.fileInfoId)) {
+            URL.revokeObjectURL(fileInfo.objectURL);
+            return false; // Remove this one, it will be replaced
+          }
+          return true; // Keep this one
+        });
+
+        // Add the new file infos
+        (fileManager as any).fileInfos = [...filteredFileInfos, ...newFileInfos];
       }
 
       rLogger.info("loadExistingFrameFiles.completed", `Successfully loaded ${loadedFiles.length} frame files: ${loadedFiles.join(', ')}`);
@@ -182,6 +202,99 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
     // Return undefined to show loading state instead of crashing
     rLogger.warn("getTrackItemObjectURL.missingFileInfo", `File info not found for trackItem ${trackItem.id}, fileInfoId: ${trackItem.fileInfoId}`);
     return undefined;
+  };
+
+  const conformTakeFrames = async (take: Take): Promise<TrackItem[]> => {
+    rLogger.info("projectFilesContext.conformTakeFrames", `Conforming frames for take ${take.shotNumber}_${take.takeNumber}`);
+
+    if (!projectDirectory) {
+      throw new Error("No project directory available for conforming take");
+    }
+
+    const takeDirectoryName = makeTakeDirectoryName(take);
+    const takeDirectoryHandle = await projectDirectory.handle.getDirectoryHandle(takeDirectoryName);
+
+    // Rename all files to temporary names to avoid collisions
+    rLogger.info("projectFilesContext.conformTakeFrames.phase1", "Renaming to temporary names");
+    const tempTrackItems: TrackItem[] = [];
+
+    for (let i = 0; i < take.frameTrack.trackItems.length; i++) {
+      const trackItem = take.frameTrack.trackItems[i];
+      const tempFileName = `temp_conform_${i.toString().padStart(TEMP_CONFORM_PADDING_DIGITS, TEMP_CONFORM_PADDING_CHAR)}.jpg`;
+
+      rLogger.info("projectFilesContext.conformTakeFrames.phase1.rename", `${trackItem.fileName} → ${tempFileName}`);
+
+      await fileManager.renameFile(
+        trackItem.fileInfoId,
+        tempFileName,
+        takeDirectoryHandle
+      );
+
+      tempTrackItems.push({
+        ...trackItem,
+        fileName: tempFileName,
+      });
+    }
+
+    // Rename from temporary names to final sequential names
+    rLogger.info("projectFilesContext.conformTakeFrames.phase2", "Renaming to final sequential names");
+    const updatedTrackItems: TrackItem[] = [];
+
+    for (let i = 0; i < tempTrackItems.length; i++) {
+      const trackItem = tempTrackItems[i];
+      const newFileNumber = i + FRAME_NUMBER_START; // Sequential numbering starting from 1
+      const newFileName = makeFrameFileName(take, newFileNumber);
+
+      rLogger.info("projectFilesContext.conformTakeFrames.phase2.rename", `${trackItem.fileName} → ${newFileName}`);
+
+      await fileManager.renameFile(
+        trackItem.fileInfoId,
+        newFileName,
+        takeDirectoryHandle
+      );
+
+      const updatedTrackItem: TrackItem = {
+        ...trackItem,
+        fileName: newFileName,
+        fileNumber: newFileNumber,
+      };
+
+      updatedTrackItems.push(updatedTrackItem);
+    }
+
+    rLogger.info("projectFilesContext.conformTakeFrames.completed", `Successfully conformed ${updatedTrackItems.length} frames`);
+
+    // On Mac, file system changes may not be immediately visible after renaming.
+    // Reload frame files to ensure they're accessible with fresh file handles.
+    // This fixes the issue where frames aren't correctly loaded right away after renaming.
+    try {
+      rLogger.info("projectFilesContext.conformTakeFrames.reload", "Reloading frame files after conforming to ensure Mac file system sync");
+
+      // Create a temporary take with updated track items for reloading
+      const updatedTake: Take = {
+        ...take,
+        frameTrack: {
+          ...take.frameTrack,
+          trackItems: updatedTrackItems,
+        },
+      };
+
+      // Small delay to allow Mac file system to sync (helps with timing issues)
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Reload files to get fresh file handles and object URLs
+      await loadExistingFrameFiles(updatedTake);
+
+      rLogger.info("projectFilesContext.conformTakeFrames.reload.success", "Successfully reloaded frame files after conforming");
+    } catch (reloadError) {
+      rLogger.warn(
+        "projectFilesContext.conformTakeFrames.reload.error",
+        `Failed to reload frame files after conforming (non-fatal): ${reloadError}. Files may need to be reloaded manually by reopening the project.`
+      );
+      // Don't throw - the conforming was successful, reloading is just for immediate access
+    }
+
+    return updatedTrackItems;
   };
 
   const updateProjectAndTakeLastSaved = (project: Project, take: Take): [Project, Take[]] => {
@@ -247,21 +360,21 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
             throw e;
           }
         }
-        
+
         if (existingFileHandle) {
           rLogger.info(
             "projectFilesContext.saveProject.updateExisting",
             `Updating existing project info file in ${projectDirectory.handle.name}`
           );
-          
+
           const writable = await existingFileHandle.createWritable();
           await writable.write(data);
           await writable.close();
-          
+
           // Create a FileInfo entry for the existing file
           const objectURL = URL.createObjectURL(data);
           const newFileInfo = new FileInfo(project.fileInfoId, FileInfoType.PROJECT_INFO, existingFileHandle, objectURL);
-          
+
           // Add to file manager's fileInfos array
           // We need to access the private fileInfos array to add the new file info
           (fileManager as any).fileInfos = [...(fileManager as any).fileInfos, newFileInfo];
@@ -294,7 +407,7 @@ export const ProjectFilesContextProvider = ({ children }: ProjectFilesContextPro
     if (!projectDirectory || !take) return;
 
     // Check if frame files are already loaded for this take
-    const hasFrameFiles = take.frameTrack.trackItems.some(trackItem => 
+    const hasFrameFiles = take.frameTrack.trackItems.some(trackItem =>
       fileManager.findFile(trackItem.fileInfoId) !== undefined
     );
 
